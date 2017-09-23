@@ -16,9 +16,9 @@ def highlander(*attrs):
     Returns:
         Callable[[type], type]: The function which will be applied to decorate the class
     """
-    def decoratorfn(cls) -> type:
+    def decoratorfn(cls):
         cls._highlander_cache = WeakValueDictionary()
-
+        
         @classmethod
         def obtain(cls, *args, **kwargs):
             arglen = len(args) + len(kwargs) 
@@ -38,7 +38,8 @@ def highlander(*attrs):
                 cls._highlander_cache[identifier] = inst
                 return inst
 
-        obtain.__func__.__doc__ = """Retrieves or builds an instance of {cls.__name__} uniquely identified by {attrs}
+        obtain.__func__.__doc__ = \
+        """Retrieves or builds an instance of {cls.__name__} uniquely identified by {attrs}
 
         If the object must be built, the arguments to this function will be passed to __init__
 
@@ -116,44 +117,3 @@ class RedisModel(metaclass=RedisModelMeta):
 
     def delete(self):
         pass
-
-@highlander('animal')
-class A(RedisModel):
-    idprefix = "a"
-
-    def __init__(self, animal, color="blue"):
-        self.animal = animal
-        self.color = color
-        self.identifier = animal
-
-    color = RemoteProperty("color")
-    shape = RemoteProperty("shape")
-
-    def __str__(self):
-        return "({} {} {})".format(self.color, self.shape, self.identifier)
-
-if __name__ == "__main__":
-    x = A.obtain("dog")
-    print(x)
-    x.color = "blue"
-    x.shape = "square"
-    print(x)
-
-    y = A.obtain("cat")
-    y.color = "red"
-    y.shape = "triangle"
-    print(x, y)
-
-    z = A.obtain("dog")
-    print(y, z)
-    z.color = "yellow"
-    z.color = "hex"
-    print(y, z)
-
-    z.invalidate()
-    y.invalidate("color")
-    print(y, z)
-
-    print(y is z)
-    print(x is z)
-    print(y is x)
