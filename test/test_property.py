@@ -28,6 +28,17 @@ class OfflinePropertyTests(unittest.TestCase):
         x.key = "xkey"
         self.assertEquals(X.prop.key(x), "xkey:prop")
 
+    def test_value_and_set(self):
+        class X:
+            prop = Property("prop")
+            key = None
+
+        x = X()
+        self.assertIs(X.prop.value(x), X.prop.null)
+        canary = object()
+        X.prop.set(x, canary)
+        self.assertIs(X.prop.value(x), canary)
+
 
 class OnlinePropertyTests(unittest.TestCase):
     @classmethod
@@ -80,3 +91,63 @@ class OnlinePropertyTests(unittest.TestCase):
         self.redis.set(key, "canary")
         self.assertTrue(X.prop.commit(x))
         self.assertEquals(self.redis.get(key).decode('utf-8'), "something")
+
+    def test_setter_autocommit(self):
+        class X:
+            redis = self.redis
+            prop = Property("p", autocommit=True)
+            key = "xkey"
+
+        x = X()
+        key = X.prop.key(x)
+        self.assertIsNone(self.redis.get(key))
+        self.redis.set(key, "canary")
+
+        x.prop = "something"
+        self.assertEquals(self.redis.get(key).decode('utf-8'), "something")
+
+    def test_setter_no_autocommit(self):
+        class X:
+            redis = self.redis
+            prop = Property("p", autocommit=False)
+            key = "xkey"
+
+        x = X()
+        key = X.prop.key(x)
+        self.assertIsNone(self.redis.get(key))
+        self.redis.set(key, "canary")
+
+        x.prop = "something"
+        self.assertEquals(self.redis.get(key).decode('utf-8'), "canary")
+        self.assertTrue(X.prop.commit(x))
+        self.assertEquals(self.redis.get(key).decode('utf-8'), "something")
+
+    def test_getter_alwaysfetch(self):
+        class X:
+            redis = self.redis
+            prop = Property("p", alwaysfetch=True)
+            key = "xkey"
+
+        x = X()
+        key = X.prop.key(x)
+        self.assertIsNone(x.prop)
+        self.assertIsNone(self.redis.get(key))
+
+        self.redis.set(key, "canary")
+        self.assertEquals(x.prop.decode('utf-8'), "canary")
+
+    def test_getter_no_alwaysfetch(self):
+        class X:
+            redis = self.redis
+            prop = Property("p", alwaysfetch=False)
+            key = "xkey"
+
+        x = X()
+        key = X.prop.key(x)
+        self.assertIsNone(x.prop)
+        self.assertIsNone(self.redis.get(key))
+
+        self.redis.set(key, "canary")
+        self.assertIsNone(x.prop)
+        X.prop.invalidate(x)
+        self.assertEquals(x.prop.decode('utf-8'), "canary")

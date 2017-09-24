@@ -7,17 +7,28 @@ class Property(property):
 
     @staticmethod
     def mangle(name):
+        """Creates a mangled version of the inputted name
+
+        Mangling is the process of changing an attribute name in such a way that it will liekly not collide with other attributes
+
+        Args:
+            name (str): The name which should be mangled
+
+        Returns:
+            str: The mangled name
+        """
         return "_property_{}".format(name)
 
-    def __init__(self, name, autocommit=True):
+    def __init__(self, name, autocommit=True, alwaysfetch=False):
         self.name = name
         self.autocommit = autocommit
+        self.alwaysfetch = alwaysfetch
 
         def getter(obj):
             value = self.value(obj)
 
-            if value is self.null:
-                self.fetch(obj)
+            if value is self.null or self.alwaysfetch:
+                value = self.fetch(obj)
 
             return value
 
@@ -58,6 +69,14 @@ class Property(property):
             return True
 
         return obj.redis.set(self.key(obj), value)
+
+    def invalidate(self, obj):
+        """Invalidates the local value to indicate a fetch must be done
+
+        Args:
+            obj (object): This property's holder
+        """
+        self.set(obj, self.null)
 
     def key(self, obj):
         """Gets the key where this property's data exists  in Redis

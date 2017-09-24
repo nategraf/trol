@@ -1,3 +1,5 @@
+from rtol import Property
+
 class ModelMeta(type):
     """A metaclass for Model which initialises the instance cache and remote properties"""
     def __init__(cls, *args, **kwargs):
