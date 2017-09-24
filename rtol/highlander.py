@@ -1,5 +1,6 @@
 from weakref import WeakValueDictionary
 
+
 def highlander(*attrs):
     """A decorator which enables class level object caching
 
@@ -17,18 +18,19 @@ def highlander(*attrs):
     """
     def decoratorfn(cls):
         cls._highlander_cache = WeakValueDictionary()
-        
+
         @classmethod
         def obtain(cls, *args, **kwargs):
-            arglen = len(args) + len(kwargs) 
+            arglen = len(args) + len(kwargs)
             if arglen != len(attrs):
-                raise TypeError("obtain() takes exactly {} argument(s) but {} were given".format(len(attrs), arglen))
+                raise TypeError("obtain() takes exactly {} argument(s) but {} were given".format(
+                    len(attrs), arglen))
 
-            # Build the identifier by adding positional args to a list, then using attrs to disern an order for kwaegs 
+            # Build the identifier by adding positional args to a list, then using attrs to disern an order for kwargs
             identifier = [*args]
             for attr in attrs[len(args):]:
                 identifier.append(kwargs[attr])
-            identifier = tuple(identifier) # FREEZE!
+            identifier = tuple(identifier)  # FREEZE!
 
             try:
                 return cls._highlander_cache[identifier]
@@ -38,7 +40,7 @@ def highlander(*attrs):
                 return inst
 
         obtain.__func__.__doc__ = \
-        """Retrieves or builds an instance of {cls.__name__} uniquely identified by {attrs}
+            """Retrieves or builds an instance of {cls.__name__} uniquely identified by {attrs}
 
         If the object must be built, the arguments to this function will be passed to __init__
 
@@ -49,10 +51,7 @@ def highlander(*attrs):
             {cls.__name__}: Obtained from the cache or built and stored there
         """.format(attrs=attrs, cls=cls, attrsfmt='\n            '.join(attrs))
 
-
         cls.obtain = obtain
         return cls
 
     return decoratorfn
-
-

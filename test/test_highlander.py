@@ -1,25 +1,30 @@
 import unittest
 from rtol import highlander
 
+
 @highlander()
 class Z:
     def __init__(self):
         pass
+
 
 @highlander('alpha')
 class A:
     def __init__(self, alpha):
         pass
 
+
 @highlander('alpha', 'beta')
 class B:
     def __init__(self, alpha, beta):
         pass
 
+
 @highlander('alpha', 'beta')
 class C:
     def __init__(self, alpha, beta, gamma=None):
         pass
+
 
 class HighlanderTests(unittest.TestCase):
 
@@ -68,7 +73,7 @@ class HighlanderTests(unittest.TestCase):
 
         keyA, keyB = "keyA", 5
         x1 = X.obtain(keyA, keyB)
-        
+
         self.assertIs(x1.alpha, keyA)
         self.assertIs(x1.beta, keyB)
 
