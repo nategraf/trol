@@ -1,4 +1,22 @@
 class Property(property):
+    """A property object which emulates a remote object as local
+    
+    The expectation is that this Property object is embedded as a class level attribute
+    The class it is embedded in should define `redis` and `key` attrbutes to define where this property is stored
+    
+    Note: 
+        This class is intended to be used with rtol.Model subclasses, but can work on it's own
+
+    Args:
+        autocommit (bool): Commit the local value to Redis on every assignment
+            Useful if you don't want to worry about forgetting to commit
+        alwaysfetch (bool): Fetch the latest value from the database 
+            Useful if you have multiple threads or processes frequently modifying the database
+
+    Args:
+        autocommit (bool): Sets the autocommit attribute. Defaults to True
+        alwayfetch (bool): Sets the alwaysfetch attribute. Defaults to False
+    """
     class Null:
         """A class to act as an indicator value"""
 
