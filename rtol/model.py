@@ -155,6 +155,12 @@ class Model(metaclass=ModelType):
             return None
 
     def invalidate(self, *propnames):
+        """Mark properties in this model as invalid and requiring a fetch
+
+        Args:
+            *propnames (list[str]): The attribute nanes of properties which should be invalidated.
+                If none are provided, the default is to invalidate all propertoes in the model.
+        """
         if propnames:
             props = list()
             for propname in propnames:
@@ -166,6 +172,12 @@ class Model(metaclass=ModelType):
             prop.invalidate(self)
 
     def commit(self, *propnames):
+        """Saves properties in this model to Redis
+
+        Args:
+            *propnames (list[str]): The attribute nanes of properties which should be committed.
+                If none are provided, the default is to commits all propertoes in the model.
+        """
         if propnames:
             props = list()
             for propname in propnames:
@@ -182,6 +194,12 @@ class Model(metaclass=ModelType):
         self.redis.mset(mappings)
 
     def delete(self, *propnames):
+        """Deletes properties in this model from Redis
+
+        Args:
+            *propnames (list[str]): The attribute nanes of properties which should be deleted.
+                If none are provided, the default is to delted all propertoes in the model.
+        """
         if propnames:
             props = list()
             for propname in propnames:
@@ -199,6 +217,11 @@ class Model(metaclass=ModelType):
             prop.set(self, prop.null)
 
     def update(self, **kwargs):
+        """Updates the local values of multiple properties and commits them if autocommit is set
+
+        Args:
+            **kwargs (dict[str, object]): Key value pairs where the key is the property name and value is what it should be set to
+        """
         commits = list()
         for propname, value in kwargs.items():
             prop = self._rtol_properties[propname]
