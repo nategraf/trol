@@ -10,7 +10,7 @@ def highlander(*attrs):
     "There can only be one!"
 
     Args:
-        *attrs (list[str]): The attribute names which uniquely identify the object in the cache. 
+        *attrs (list[str]): The attribute names which uniquely identify the object in the cache.
              These are also the arguments which will be passed to __init__ when building the cached object in `obtain`
 
     Returns:

@@ -2,7 +2,7 @@ from functools import wraps
 from rtol import Property
 """Provides the Model and ModelType classes, which are the basic blocks of rtol
 
-The Model class is what rtol data models derive from. 
+The Model class is what rtol data models derive from.
 The examples in these docs will use the following data model
 
 Example:
@@ -22,7 +22,7 @@ Example:
     ...     @property
     ...     def id(self):
     ...         return self.name
-    ...     
+    ...
     ...     class Employee(rtol.Model):
     ...         def __init__(self, firstname, lastname):
     ...             self.update(
@@ -33,7 +33,7 @@ Example:
     ...         first_name = rtol.Property()
     ...         last_name = rtol.Property()
     ...         # Add a schedule list here when it is ready
-    ...         
+    ...
     ...         @property
     ...         def id(self):
     ...             return "{} {}".format(self.first_name, self.last_name)
@@ -41,11 +41,11 @@ Example:
     ...         class Schedule(rtol.Model):
     ...             def __init__(self):
     ...                 self.id = uuid.uuid4()
-    ...             
+    ...
     ...             date = rtol.Property()
     ...             time_start = rtol.Property()
     ...             time_end = rtol.Property()
-    ...             
+    ...
     ...     class Beer(rtol.Model):
     ...         def __init__(self, shorthand, name):
     ...             self.id = shorthand
@@ -54,8 +54,8 @@ Example:
     ...         name = rtol.Property()
     ...         ingredients = rtol.Property()
     ...         price = rtol.Property()
-    ...         
-    
+    ...
+
 """
 
 
