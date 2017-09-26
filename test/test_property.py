@@ -151,3 +151,17 @@ class OnlinePropertyTests(unittest.TestCase):
         self.assertIsNone(x.prop)
         X.prop.invalidate(x)
         self.assertEquals(x.prop.decode('utf-8'), "canary")
+
+    def test_delete(self):
+        class X:
+            redis = self.redis
+            prop = Property("p")
+            key = "xkey"
+
+        x = X()
+        key = X.prop.key(x)
+
+        self.redis.set(key, "canary")
+        self.assertTrue(X.prop.delete(x))
+        self.assertIsNone(self.redis.get(key))
+        self.assertFalse(X.prop.delete(x))

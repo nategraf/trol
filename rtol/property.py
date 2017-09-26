@@ -1,21 +1,23 @@
 class Property(property):
     """A property object which emulates a remote object as local
-    
+
     The expectation is that this Property object is embedded as a class level attribute
     The class it is embedded in should define `redis` and `key` attrbutes to define where this property is stored
-    
+
     Note: 
         This class is intended to be used with rtol.Model subclasses, but can work on it's own
 
     Args:
         autocommit (bool): Commit the local value to Redis on every assignment
+            If set to None, assignments will check the holder object for an autocommit value, and default to True if not present
             Useful if you don't want to worry about forgetting to commit
         alwaysfetch (bool): Fetch the latest value from the database 
+            If set to None, gets will check the holder object for an alwaysfetch value, and default to True if not present
             Useful if you have multiple threads or processes frequently modifying the database
 
     Args:
-        autocommit (bool): Sets the autocommit attribute. Defaults to True
-        alwayfetch (bool): Sets the alwaysfetch attribute. Defaults to False
+        autocommit (bool): Sets the autocommit attribute. Defaults to None
+        alwayfetch (bool): Sets the alwaysfetch attribute. Defaults to None
     """
     class Null:
         """A class to act as an indicator value"""
@@ -35,9 +37,9 @@ class Property(property):
         Returns:
             str: The mangled name
         """
-        return "_property_{}".format(name)
+        return "_rtol_property_{}".format(name)
 
-    def __init__(self, name, autocommit=True, alwaysfetch=False):
+    def __init__(self, name=None, autocommit=None, alwaysfetch=None):
         self.name = name
         self.autocommit = autocommit
         self.alwaysfetch = alwaysfetch
@@ -45,7 +47,7 @@ class Property(property):
         def getter(obj):
             value = self.value(obj)
 
-            if value is self.null or self.alwaysfetch:
+            if value is self.null or self.alwaysfetch or (self.alwaysfetch is None and getattr(obj, 'alwaysfetch', False)):
                 value = self.fetch(obj)
 
             return value
@@ -53,7 +55,7 @@ class Property(property):
         def setter(obj, value):
             self.set(obj, value)
 
-            if self.autocommit:
+            if self.autocommit or (self.autocommit is None and getattr(obj, 'autocommit', True)):
                 self.commit(obj)
 
         super().__init__(fget=getter, fset=setter)
@@ -80,13 +82,27 @@ class Property(property):
             obj (object): This property's holder
 
         Returns:
-            bool: True if the transaction was successful. False otherwise
+            bool: True if the set transaction was successful. False otherwise
         """
         value = self.value(obj)
         if self.value(obj) is self.null:
             return True
 
         return obj.redis.set(self.key(obj), value)
+
+    def delete(self, obj):
+        """Deletes the key of this property from Redis
+
+        Args:
+            obj (object): This property's holder
+
+        Returns:
+            bool: True if the delete transaction was successful. False otherwise
+        """
+        ok = obj.redis.delete(self.key(obj))
+        if ok:
+            self.set(obj, None)
+        return ok
 
     def invalidate(self, obj):
         """Invalidates the local value to indicate a fetch must be done
