@@ -1,6 +1,7 @@
 import pickle
 from rtol import RedisKeyError
 
+
 class Property(property):
     """A property object which emulates a remote object as local
 
