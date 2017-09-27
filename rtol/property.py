@@ -27,6 +27,8 @@ class Property(property):
     Args:
         autocommit (bool): Sets the autocommit attribute. Defaults to None
         alwayfetch (bool): Sets the alwaysfetch attribute. Defaults to None
+        serializer (Callable[[object], bytes]): Sets the serializer attribute. Defaults to None
+        deserializer (Callable[[bytes], object]): Sets the deserializer attribute. Defaults to None
     """
     class Null:
         """A class to act as an indicator value"""
@@ -174,3 +176,29 @@ class Property(property):
             value (object): The value to set
         """
         setattr(obj, self.mangle(self.name), value)
+
+# These classes below are small, and that's the point. I'm trying to show how easy it is to add a new type of property
+
+class StrProperty(Property):
+    def __init__(self, name=None, autocommit=None, alwaysfetch=None):
+        serializer = Serializer(str)
+        deserializer = Deserializer(str)
+        super().__init__(self, name=name, autocommit=autocommit, alwaysfetch=alwaysfetch, serializer=serializer, deserializer=deserializer)
+
+class IntProperty(Property):
+    def __init__(self, name=None, autocommit=None, alwaysfetch=None):
+        serializer = Serializer(int)
+        deserializer = Deserializer(int)
+        super().__init__(self, name=name, autocommit=autocommit, alwaysfetch=alwaysfetch, serializer=serializer, deserializer=deserializer)
+
+class FloatProperty(Property):
+    def __init__(self, name=None, autocommit=None, alwaysfetch=None):
+        serializer = Serializer(float)
+        deserializer = Deserializer(float)
+        super().__init__(self, name=name, autocommit=autocommit, alwaysfetch=alwaysfetch, serializer=serializer, deserializer=deserializer)
+
+class BytesProperty(Property):
+    def __init__(self, name=None, autocommit=None, alwaysfetch=None):
+        serializer = Serializer(bytes)
+        deserializer = Deserializer(bytes)
+        super().__init__(self, name=name, autocommit=autocommit, alwaysfetch=alwaysfetch, serializer=serializer, deserializer=deserializer)
