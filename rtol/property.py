@@ -1,3 +1,6 @@
+import pickle
+from rtol import RedisKeyError
+
 class Property(property):
     """A property object which emulates a remote object as local
 
@@ -14,6 +17,11 @@ class Property(property):
         alwaysfetch (bool): Fetch the latest value from the database
             If set to None, gets will check the holder object for an alwaysfetch value, and default to True if not present
             Useful if you have multiple threads or processes frequently modifying the database
+        serializer (Callable[[object], bytes]): A function or callable which will be used for serializing the value before storage in Redis
+            Although bytes is the most general output type, this function may also output `str`, `int`, or any other type redis=py will accept
+            Default is `pickle.dumps`, which is not human readable, but will work with most python object
+        deserializer (Callable[[bytes], object]): A function or callable which will be used for deserializing the value after reciving it from redis
+            Default is `pickle.loads`, the counterpart for the deafault serializer
 
     Args:
         autocommit (bool): Sets the autocommit attribute. Defaults to None
@@ -39,16 +47,21 @@ class Property(property):
         """
         return "_rtol_property_{}".format(name)
 
-    def __init__(self, name=None, autocommit=None, alwaysfetch=None):
+    def __init__(self, name=None, autocommit=None, alwaysfetch=None, serializer=pickle.dumps, deserializer=pickle.loads):
         self.name = name
         self.autocommit = autocommit
         self.alwaysfetch = alwaysfetch
+        self.serializer = serializer
+        self.deserializer = deserializer
 
         def getter(obj):
             value = self.value(obj)
 
             if value is self.null or self.alwaysfetch or (self.alwaysfetch is None and getattr(obj, 'alwaysfetch', False)):
                 value = self.fetch(obj)
+
+            if value is self.null:
+                raise RedisKeyError(self.key(obj))
 
             return value
 
@@ -69,7 +82,13 @@ class Property(property):
         Returns:
             bytes: The data retrieved or None in the case of a key not found
         """
-        value = obj.redis.get(self.key(obj))
+        response = obj.redis.get(self.key(obj))
+
+        if response is not None:
+            value = self.deserializer(response)
+        else:
+            value = self.null
+
         self.set(obj, value)
         return value
 
@@ -88,7 +107,7 @@ class Property(property):
         if self.value(obj) is self.null:
             return True
 
-        return obj.redis.set(self.key(obj), value)
+        return obj.redis.set(self.key(obj), self.serializer(value))
 
     def delete(self, obj):
         """Deletes the key of this property from Redis

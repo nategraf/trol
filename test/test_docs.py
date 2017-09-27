@@ -2,23 +2,16 @@ import doctest
 import unittest
 import rtol
 import docker
+from .common import ensure_redis_is_online
 
-container = None
-
+container_token = None
 
 def setUp(dtest):
-    global container
+    global container_token
 
-    dockerc = docker.from_env()
-    container = dockerc.containers.run(
-        "redis:latest", name='rtol-test-redis', network_mode='host', detach=True)
-
-
-def tearDown(dtest):
-    container.remove(force=True)
-
+    container_token = ensure_redis_is_online()
 
 def load_tests(loader, tests, ignore):
     tests.addTests(doctest.DocFileSuite(
-        'model.py', package=rtol, setUp=setUp, tearDown=tearDown))
+        'model.py', package=rtol, setUp=setUp))
     return tests
