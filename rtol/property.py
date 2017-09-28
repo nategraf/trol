@@ -2,7 +2,7 @@ import pickle
 from rtol import RedisKeyError, Serializer, Deserializer
 
 
-class Property(property):
+class Property:
     """A property object which emulates a remote object as local
 
     The expectation is that this Property object is embedded as a class level attribute
@@ -57,24 +57,25 @@ class Property(property):
         self.serializer = serializer
         self.deserializer = deserializer
 
-        def getter(obj):
-            value = self.value(obj)
+    def __get__(self, obj, typ=None):
+        if obj is None:
+            return self
 
-            if value is self.null or self.alwaysfetch or (self.alwaysfetch is None and getattr(obj, 'alwaysfetch', False)):
-                value = self.fetch(obj)
+        value = self.value(obj)
 
-            if value is self.null:
-                raise RedisKeyError(self.key(obj))
+        if value is self.null or self.alwaysfetch or (self.alwaysfetch is None and getattr(obj, 'alwaysfetch', False)):
+            value = self.fetch(obj)
 
-            return value
+        if value is self.null:
+            raise RedisKeyError(self.key(obj))
 
-        def setter(obj, value):
-            self.set(obj, value)
+        return value
 
-            if self.autocommit or (self.autocommit is None and getattr(obj, 'autocommit', True)):
-                self.commit(obj)
+    def __set__(self, obj, value):
+        self.set(obj, value)
 
-        super().__init__(fget=getter, fset=setter)
+        if self.autocommit or (self.autocommit is None and getattr(obj, 'autocommit', True)):
+            self.commit(obj)
 
     def fetch(self, obj):
         """Retrieves and sets the value of this property
