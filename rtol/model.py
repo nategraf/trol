@@ -119,15 +119,38 @@ class ModelType(type):
 
 
 class Model(metaclass=ModelType):
-    """A class to support object oriented Redis communication"""
+    """A class to support object oriented Redis communication
+
+    Attributes:
+        autocommit (bool): If `True`, properties will be immediatly commited to Redis when modified. Default is `True`
+            This attribute can be overriden for a single property by setting that properties `autocommit` attribute
+        alwaysfetch (bool): If `True`, property values will be fetched from Redis on every access. Deafault is `False`
+            This attribute can be overriden for a single property by setting that properties `alwaysfetch` attribute
+    """
     _model_name = None
     _redis = None
+    _key = None
 
     autocommit = True
     alwaysfetch = False
 
     @property
     def model_name(self):
+        """str: The name which will be used to identify this model, and it's insatnces in Redis
+
+        Example:
+            >>> class University(rtol.Model):
+            ...     def __init__(self, name):
+            ...         self.id = name
+            ...
+            >>> university = University("tamu")
+            >>> university.key
+            'University:tamu'
+            >>> university.model_name = "uni"
+            >>> university.key
+            'uni:tamu'
+
+        """
         if self._model_name is not None:
             return self._model_name
 
@@ -145,12 +168,40 @@ class Model(metaclass=ModelType):
         This key is generated recursively walking up the model tree until the root is reached
 
         Example:
+            >>> class Host(rtol.Model):
+            ...     def __init__(self, ip):
+            ...         self.id = ip
+            ...
+            ...     class Service(rtol.Model):
+            ...         def __init__(self, protocol, port):
+            ...             self.id = '{}/{}'.format(protocol, port)
+            ...
+            ...         class Resource(rtol.Model):
+            ...             def __init__(self, path):
+            ...                 self.id = path
+            ...
+            >>> host = Host('192.30.253.167')
+            >>> host.key
+            'Host:192.30.253.167'
+            >>> serv = host.Service('tcp', 22)
+            >>> serv.key
+            'Host:192.30.253.167:Service:tcp/22'
+            >>> res = serv.Resource('nategraf/RedisThinObjectLayer')
+            >>> res.key
+            'Host:192.30.253.167:Service:tcp/22:Resource:nategraf/RedisThinObjectLayer'
 
         """
+        if self._key is not None:
+            return self._key
+
         if self._rtol_parent is not None:
             return ':'.join((self._rtol_parent.key, self.model_name, self.id))
         else:
             return ':'.join((self.model_name, self.id))
+
+    @key.setter
+    def key(self, key):
+        self._key = key
 
     @property
     def redis(self):
