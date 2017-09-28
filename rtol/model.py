@@ -90,9 +90,6 @@ class ModelType(type):
         cls._rtol_parent = None
         cls._rtol_parent_class = None
 
-        if cls.model_name is None:
-            cls.model_name = cls.__name__.strip('&')
-
         for attrname, attr in cls.__dict__.items():
             if isinstance(attr, Property):
                 cls._rtol_properties[attrname] = attr
@@ -123,10 +120,23 @@ class ModelType(type):
 
 class Model(metaclass=ModelType):
     """A class to support object oriented Redis communication"""
-    id = None
-    model_name = None
+    _model_name = None
+    _redis = None
+
     autocommit = True
     alwaysfetch = False
+
+    @property
+    def model_name(self):
+        if self._model_name is not None:
+            return self._model_name
+
+        # The '&' is added as a marker that this is a copy of the original class (for debug)
+        return self.__class__.__name__.strip('&')
+
+    @model_name.setter
+    def model_name(self, name):
+        self._model_name = name
 
     @property
     def key(self):
@@ -148,11 +158,18 @@ class Model(metaclass=ModelType):
 
         This model will walk up the model tree and use the first connection it encounters
         """
+        if self._redis is not None:
+            return self._redis
+
         # Use try/except rather than if/else for this block because it should succeed if models are correct
         try:
             return self._rtol_parent.redis
         except AttributeError:
             return None
+
+    @redis.setter
+    def redis(self, redis):
+        self._redis = redis
 
     def invalidate(self, *propnames):
         """Mark properties in this model as invalid and requiring a fetch
@@ -189,7 +206,7 @@ class Model(metaclass=ModelType):
         for prop in props:
             value = prop.value(self)
             if value is not prop.null:
-                mappings[prop.key(self)] = value
+                mappings[prop.key(self)] = prop.serializer(value)
 
         self.redis.mset(mappings)
 

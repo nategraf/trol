@@ -1,5 +1,5 @@
 import pickle
-from rtol import RedisKeyError
+from rtol import RedisKeyError, Serializer, Deserializer
 
 
 class Property(property):
@@ -179,26 +179,34 @@ class Property(property):
 
 # These classes below are small, and that's the point. I'm trying to show how easy it is to add a new type of property
 
+
 class StrProperty(Property):
     def __init__(self, name=None, autocommit=None, alwaysfetch=None):
         serializer = Serializer(str)
         deserializer = Deserializer(str)
-        super().__init__(self, name=name, autocommit=autocommit, alwaysfetch=alwaysfetch, serializer=serializer, deserializer=deserializer)
+        super().__init__(name=name, autocommit=autocommit, alwaysfetch=alwaysfetch,
+                         serializer=serializer, deserializer=deserializer)
+
 
 class IntProperty(Property):
     def __init__(self, name=None, autocommit=None, alwaysfetch=None):
         serializer = Serializer(int)
         deserializer = Deserializer(int)
-        super().__init__(self, name=name, autocommit=autocommit, alwaysfetch=alwaysfetch, serializer=serializer, deserializer=deserializer)
+        super().__init__(name=name, autocommit=autocommit, alwaysfetch=alwaysfetch,
+                         serializer=serializer, deserializer=deserializer)
+
 
 class FloatProperty(Property):
     def __init__(self, name=None, autocommit=None, alwaysfetch=None):
         serializer = Serializer(float)
         deserializer = Deserializer(float)
-        super().__init__(self, name=name, autocommit=autocommit, alwaysfetch=alwaysfetch, serializer=serializer, deserializer=deserializer)
+        super().__init__(name=name, autocommit=autocommit, alwaysfetch=alwaysfetch,
+                         serializer=serializer, deserializer=deserializer)
+
 
 class BytesProperty(Property):
     def __init__(self, name=None, autocommit=None, alwaysfetch=None):
         serializer = Serializer(bytes)
         deserializer = Deserializer(bytes)
-        super().__init__(self, name=name, autocommit=autocommit, alwaysfetch=alwaysfetch, serializer=serializer, deserializer=deserializer)
+        super().__init__(name=name, autocommit=autocommit, alwaysfetch=alwaysfetch,
+                         serializer=serializer, deserializer=deserializer)
