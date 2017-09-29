@@ -88,7 +88,6 @@ class ModelType(type):
         cls._rtol_properties = dict()
         cls._rtol_child_classes = dict()
         cls._rtol_parent = None
-        cls._rtol_parent_class = None
 
         for attrname, attr in cls.__dict__.items():
             if isinstance(attr, Property):
@@ -98,24 +97,21 @@ class ModelType(type):
                     attr.name = attrname
 
             if type(attr) is ModelType:
-                attr._rtol_parent_class = cls
                 cls._rtol_child_classes[attrname] = attr
 
-        initfn_origonal = cls.__init__
-
-        @wraps(initfn_origonal)
-        def initfn_wrapper(self, *args, **kwargs):
-            initfn_origonal(self, *args, **kwargs)
-
-            for attrname, childcls in self._rtol_child_classes.items():
-                cpycls = ModelType.__new__(ModelType, "&{}".format(
-                    childcls.__name__), (childcls,), {})
-                cpycls._rtol_parent = self
-                setattr(self, attrname, cpycls)
-
-        cls.__init__ = initfn_wrapper
-
         super().__init__(*args, **kwargs)
+
+    def __get__(cls, obj, typ):
+        if obj is None:
+            return cls
+
+        return ModelType.__new__(
+            ModelType,
+            "&{}".format(cls.__name__),
+            (cls,),
+            {
+                '_rtol_parent': obj
+            })
 
 
 class Model(metaclass=ModelType):
