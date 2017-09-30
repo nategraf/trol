@@ -57,11 +57,12 @@ class Collection(object):
     """
 
     def __init__(self, name=None, redis=None, typ=None, key=None, serializer=None, deserializer=None):
-        self.name = name
+        self._name = name
         self._redis = redis
         self._key = key
         self._threadlocal = None
 
+        self._typ = typ
         if serializer is None:
             if typ is None:
                 self.serialize = pickle.dumps
@@ -77,6 +78,26 @@ class Collection(object):
                 self.deserialize = Deserializer(typ)
         else:
             self.deserialize = deserializer
+
+    def __get__(self, obj, typ=None):
+        if obj is None:
+            return self
+
+        if self._key is not None:
+            key = self._key
+        else:
+            if self._name is not None:
+                key = ':'.join((obj.key, self._name))
+            else:
+                raise AttributeError(
+                    "{self.__class__.__name__} does not have it's 'name' or 'key' attributes set. If bound to a class which is not a Model, at least one must be set explicitly")
+
+        if self._redis is not None:
+            redis = self._redis
+        else:
+            redis = obj.redis
+
+        return self.__class__(name=self._name, key=key, redis=redis, typ=self._typ, serializer=self.serialize, deserializer=self.deserialize)
 
     def clear(self):
         """
@@ -112,12 +133,36 @@ class Collection(object):
         self.redis.expire(self.key, time)
 
     @property
+    def name(self):
+        """``str``: The name for this set, which will be used to determine the key if bound to a Model
+
+        >>> class Alpha(rtol.Model):
+        ...     def __init__(self, ident):
+        ...         self.id = ident
+        ...
+        ...     storage = rtol.Set(name="store")
+        ...
+        >>> a = Alpha('xyz')
+        >>> a.key
+        'Alpha:xyz'
+        >>> a.storage.key
+        'Alpha:xyz:store'
+
+        """
+        return self._name
+
+    @name.setter
+    def name(self, value):
+        self._name = value
+
+    @property
     def redis(self):
         """``redis.Redis``: A connection object for interacting with Redis"""
         if self._redis is not None:
             return self._redis
         else:
-            raise AttributeEror("'{self.__class__.__name__}' has no connection set. If not bound to a class, a collection must have it's connection specified".format(self=self))
+            raise AttributeEror(
+                "'{self.__class__.__name__}' has no connection set. If not bound to a class, a collection must have it's connection specified".format(self=self))
 
     @redis.setter
     def redis(self, value):
@@ -142,7 +187,8 @@ class Collection(object):
         if self.name is not None:
             return self.name
         else:
-            raise AttributeEror("'{self.__class__.__name__}' has no name or key set. If not bound to a class, a collection must have either it's key or name attribute specified".format(self=self))
+            raise AttributeEror(
+                "'{self.__class__.__name__}' has no name or key set. If not bound to a class, a collection must have either it's key or name attribute specified".format(self=self))
 
     @key.setter
     def key(self, value):
