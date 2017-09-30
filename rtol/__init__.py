@@ -3,3 +3,4 @@ from .exceptions import RedisKeyError
 from .util import Serializer, Deserializer
 from .property import Property, StrProperty, IntProperty, FloatProperty, BytesProperty
 from .model import Model, ModelType
+from .collection import Set, List, SortedSet, Hash

@@ -1,16 +1,44 @@
 # -*- coding: utf-8 -*-
 # doctest: +ELLIPSIS
-"""Collections which procy access to Redis storage
+"""Collections which proxy access to Redis storage
 
 This file is Copyright (c) 2010 Tim Medina
-Licenced under the MIT License availible in the root of the source repo
-It has been modifed to hit the overal model of RTOL but is largely the same
+Licenced under the MIT License availible in the root of the RTOL source repo
+It has been modifed to hit the overal model of RTOL, but is largely the same externally
 Thanks to the guys at Redisco for the great work! https://github.com/kiddouk/redisco
+
+Here are the modifications from the origonal Redisco conatiners:
+    * Values are serialized and deserialized allowing more arbitrary objects to be stored
+    * Comparison operations do not trigger network transfer of container members
+    * Set copy does not tigger network transfer of set members
+    * Functions which require multiple explicitly use the pipeline to avoid multiple network calls
+    * Some functions now use a "scratch-pad" in redis to avoid transfering full collections
+    * The ``db`` attribute has been renamed to ``redis`` to match other places in rtol
+    * There is no default expire time
+    * A redis connection must be specified on construction
+    * There is no support for TypedList or NonPersitentList
+
+Unlike properties, containers call out to Redis on every transaction by default
+Caching for containers is a trickier prospect, and therefore is not attempted
+
+>>> import rtol
+>>> from redis import Redis
+>>> redis = Redis()
+
 """
 
+import threading
 import collections
-from functools import partial
-from . import default_expire_time
+import pickle
+
+
+# Use a guid to make sure that no wil define a colliding key by accident
+# Every thread gets their own scratch key to make sure there are not threading errors
+_scratch_guid = "c05f145e-a1a8-4742-918c-e01d6d40b02a"
+
+
+def _scratch_key():
+    return "scratch:{}:{}".format(_scratch_guid, threading.get_ident())
 
 
 def _parse_values(values):
@@ -20,81 +48,88 @@ def _parse_values(values):
     return values
 
 
-class Container(object):
+class Collection(object):
     """
-    Base class for all containers. This class should not
-    be used and does not provide anything except the ``db``
-    member.
+    Base class for all containers. This class should not used directctly
+    This class provides the ``redis`` attribute
     :members:
     """
 
-    def __init__(self, key, db=None, pipeline=None):
-        self._db = db
+    def __init__(self, key, redis, serializer=pickle.dumps, deserializer=pickle.loads):
+        self.redis = redis
         self.key = key
-        self.pipeline = pipeline
+        self._threadlocal = None
+        self.serialize = serializer
+        self.deserialize = deserializer
 
     def clear(self):
         """
         Remove the container from the redis storage
 
-        >>> s = Set('test')
+        >>> s = rtol.Set('test', redis)
         >>> s.add('1')
         1
         >>> s.clear()
         >>> s.members
-        set([])
+        set()
 
 
         """
-        del self.db[self.key]
+        self.redis.delete(self.key)
 
-    def set_expire(self, time=None):
+    def set_expire(self, time):
         """
         Allow the key to expire after ``time`` seconds.
 
-        >>> s = Set("test")
+        >>> s = rtol.Set('test', redis)
         >>> s.add("1")
         1
         >>> s.set_expire(1)
-        >>> # from time import sleep
-        >>> # sleep(1)
-        >>> # s.members
-        # set([])
-        >>> s.clear()
+        >>> from time import sleep
+        >>> sleep(1.5)
+        >>> s.members
+        set()
 
 
-        :param time: time expressed in seconds. If time is not specified, then ``default_expire_time`` will be used.
+        :param time: time expressed in seconds.
         :rtype: None
         """
-        if time is None:
-            time = default_expire_time
-        self.db.expire(self.key, time)
+        self.redis.expire(self.key, time)
 
     @property
-    def db(self):
-        if self.pipeline is not None:
-            return self.pipeline
-        if self._db is not None:
-            return self._db
-        if hasattr(self, 'db_cache') and self.db_cache:
-            return self.db_cache
-        else:
-            from redisco import connection
-            self.db_cache = connection
-            return self.db_cache
+    def pipeline(self):
+        """``redis.Pipeline``: A pipeline object to execute buffered commands
+
+        The collection waits until you call this function for the first time to intialize the pipeline
+        A unique pipeline will be created for each thread that accesses this property, so it is thread safe
+        """
+        if self._threadlocal is None:
+            self._threadlocal = threading.local()
+
+        try:
+            pipe = self._threadlocal.pipeline
+        except AttributeError:
+            pipe = self.redis.pipeline()
+            self._threadlocal.pipeline = pipe
+        return pipe
 
 
-class Set(Container):
+class Set(Collection):
     """
     .. default-domain:: set
 
-    This class represent a Set in redis.
+    This class represents a Set in redis.
     """
 
-
     def __repr__(self):
-        return "<%s '%s' %s>" % (self.__class__.__name__, self.key,
-                                 self.members)
+        """Gets the string representation of this Set
+
+        >>> s = rtol.Set('test', redis)
+        >>> repr(s)
+        "<Set 'test'>"
+
+        """
+        return "<%s '%s'>" % (self.__class__.__name__, self.key)
 
     def sadd(self, *values):
         """
@@ -103,18 +138,18 @@ class Set(Container):
         :param values: a list of values or a simple value.
         :rtype: integer representing the number of value added to the set.
 
-        >>> s = Set("test")
-        >>> s.clear()
-        >>> s.add(["1", "2", "3"])
+        >>> s = rtol.Set('test', redis)
+        >>> s.add([1, 2, 3])
         3
-        >>> s.add(["4"])
+        >>> s.add([4])
         1
-        >>> print s
-        <Set 'test' set(['1', '3', '2', '4'])>
+        >>> s.members == {1, 2, 3, 4}
+        True
         >>> s.clear()
 
         """
-        return self.db.sadd(self.key, *_parse_values(values))
+        values = [self.serialize(v) for v in _parse_values(values)]
+        return self.redis.sadd(self.key, *values)
 
     def srem(self, *values):
         """
@@ -123,15 +158,16 @@ class Set(Container):
         :param values: a list of values or a simple value.
         :rtype: boolean indicating if the values have been removed.
 
-        >>> s = Set("test")
-        >>> s.add(["1", "2", "3"])
+        >>> s = rtol.Set('test', redis)
+        >>> s.add([1, 2, 3])
         3
-        >>> s.srem(["1", "3"])
+        >>> s.srem([1, 3])
         2
         >>> s.clear()
 
         """
-        return self.db.srem(self.key, *_parse_values(values))
+        values = [self.serialize(v) for v in _parse_values(values)]
+        return self.redis.srem(self.key, *values)
 
     def spop(self):
         """
@@ -139,20 +175,16 @@ class Set(Container):
 
         :rtype: String representing the value poped.
 
-        >>> s = Set("test")
-        >>> s.add("1")
+        >>> s = rtol.Set('test', redis)
+        >>> s.add("a")
         1
         >>> s.spop()
-        '1'
+        'a'
         >>> s.members
-        set([])
+        set()
 
         """
-        return self.db.spop(self.key)
-
-    #def __repr__(self):
-    #    return "<%s '%s' %s>" % (self.__class__.__name__, self.key,
-    #            self.members)
+        return self.deserialize(self.redis.spop(self.key))
 
     def isdisjoint(self, other):
         """
@@ -161,8 +193,8 @@ class Set(Container):
         :param other: another ``Set``
         :rtype: boolean
 
-        >>> s1 = Set("key1")
-        >>> s2 = Set("key2")
+        >>> s1 = rtol.Set('key1', redis)
+        >>> s2 = rtol.Set('key2', redis)
         >>> s1.add(['a', 'b', 'c'])
         3
         >>> s2.add(['c', 'd', 'e'])
@@ -171,8 +203,11 @@ class Set(Container):
         False
         >>> s1.clear()
         >>> s2.clear()
+
         """
-        return not bool(self.db.sinter([self.key, other.key]))
+        self.pipeline.sinterstore(_scratch_key(), [self.key, other.key])
+        self.pipeline.delete(_scratch_key())
+        return self.pipeline.execute()[0] == 0
 
     def issubset(self, other_set):
         """
@@ -180,8 +215,8 @@ class Set(Container):
 
         :param other_set: another ``Set`` to compare to.
 
-        >>> s1 = Set("key1")
-        >>> s2 = Set("key2")
+        >>> s1 = rtol.Set('key1', redis)
+        >>> s2 = rtol.Set('key2', redis)
         >>> s1.add(['a', 'b', 'c'])
         3
         >>> s2.add('b')
@@ -195,25 +230,67 @@ class Set(Container):
         return self <= other_set
 
     def __le__(self, other_set):
-        return self.db.sinter([self.key, other_set.key]) == self.all()
+        self.pipeline.sdiffstore(_scratch_key(), [self.key, other_set.key])
+        self.pipeline.delete(_scratch_key())
+        return self.pipeline.execute()[0] == 0
 
     def __lt__(self, other_set):
-        """Test whether the set is a true subset of other."""
-        return self <= other_set and self != other_set
+        """Test whether the set is a true subset of other.
+
+        >>> s1 = rtol.Set('key1', redis)
+        >>> s2 = rtol.Set('key2', redis)
+        >>> s1.add(['a', 'b'])
+        2
+        >>> s2.add(['a', 'b'])
+        2
+        >>> s2 < s1
+        False
+        >>> s1.add('c')
+        1
+        >>> s2 < s1
+        True
+        >>> s1.clear()
+        >>> s2.clear()
+
+        """
+        self.pipeline.sdiffstore(_scratch_key(), [self.key, other_set.key])
+        self.pipeline.scard(self.key)
+        self.pipeline.scard(other_set.key)
+        self.pipeline.delete(_scratch_key())
+        result = self.pipeline.execute()
+        return result[0] == 0 and result[1] != result[2]
 
     def __eq__(self, other_set):
         """
-        Test equality of:
-        1. keys
-        2. members
+        Test equality of keys first, then members is they are not equal
+
+        >>> s1 = rtol.Set('key1', redis)
+        >>> s2 = rtol.Set('key2', redis)
+        >>> s1.add(['a', 'b'])
+        2
+        >>> s2.add(['a', 'b'])
+        2
+        >>> s2 == s1
+        True
+        >>> s1.add('c')
+        1
+        >>> s2 < s1
+        True
+        >>> s1 == s1
+        True
+        >>> s1.clear()
+        >>> s2.clear()
+
         """
         if other_set.key == self.key:
             return True
-        slen, olen = len(self), len(other_set)
-        if olen == slen:
-            return self.members == other_set.members
-        else:
-            return False
+
+        self.pipeline.sunionstore(_scratch_key(), [self.key, other_set.key])
+        self.pipeline.scard(self.key)
+        self.pipeline.scard(other_set.key)
+        self.pipeline.delete(_scratch_key())
+        result = self.pipeline.execute()
+        return result[0] == result[1] and result[1] == result[2]
 
     def __ne__(self, other_set):
         return not self.__eq__(other_set)
@@ -224,8 +301,8 @@ class Set(Container):
 
         :param other_set: another ``Set`` to compare to.
 
-        >>> s1 = Set("key1")
-        >>> s2 = Set("key2")
+        >>> s1 = rtol.Set('key1', redis)
+        >>> s2 = rtol.Set('key2', redis)
         >>> s1.add(['a', 'b', 'c'])
         3
         >>> s2.add('b')
@@ -240,11 +317,11 @@ class Set(Container):
 
     def __ge__(self, other_set):
         """Test whether every element in other is in the set."""
-        return self.db.sinter([self.key, other_set.key]) == other_set.all()
+        return other_set <= self
 
     def __gt__(self, other_set):
         """Test whether the set is a true superset of other."""
-        return self >= other_set and self != other_set
+        return other_set < self
 
     # SET Operations
     def union(self, key, *other_sets):
@@ -255,28 +332,24 @@ class Set(Container):
         :param other_sets: list of other ``Set``.
         :rtype: ``Set``
 
-        >>> s1 = Set('key1')
-        >>> s2 = Set('key2')
+        >>> s1 = rtol.Set('key1', redis)
+        >>> s2 = rtol.Set('key2', redis)
         >>> s1.add(['a', 'b', 'c'])
         3
         >>> s2.add(['d', 'e'])
         2
         >>> s3 = s1.union('key3', s2)
         >>> s3.key
-        u'key3'
-        >>> s3.members
-        set(['a', 'c', 'b', 'e', 'd'])
+        'key3'
+        >>> s3.members == {'a', 'c', 'b', 'e', 'd'}
+        True
         >>> s1.clear()
         >>> s2.clear()
         >>> s3.clear()
 
         """
-        if not isinstance(key, str) and not isinstance(key, unicode):
-            raise ValueError("Expect a (unicode) string as key")
-        key = unicode(key)
-
-        self.db.sunionstore(key, [self.key] + [o.key for o in other_sets])
-        return Set(key)
+        self.redis.sunionstore(key, [self.key] + [o.key for o in other_sets])
+        return Set(key, redis=self.redis)
 
     def intersection(self, key, *other_sets):
         """
@@ -284,31 +357,27 @@ class Set(Container):
 
         :param key: String representing the key where to store the result (the union)
         :param other_sets: list of other ``Set``.
-        :rtype: Set
+        :rtype: rtol.Set
 
-        >>> s1 = Set('key1')
-        >>> s2 = Set('key2')
+        >>> s1 = rtol.Set('key1', redis)
+        >>> s2 = rtol.Set('key2', redis)
         >>> s1.add(['a', 'b', 'c'])
         3
         >>> s2.add(['c', 'e'])
         2
         >>> s3 = s1.intersection('key3', s2)
         >>> s3.key
-        u'key3'
+        'key3'
         >>> s3.members
-        set(['c'])
+        {'c'}
         >>> s1.clear()
         >>> s2.clear()
         >>> s3.clear()
+
         """
 
-
-        if not isinstance(key, str) and not isinstance(key, unicode):
-            raise ValueError("Expect a (unicode) string as key")
-        key = unicode(key)
-
-        self.db.sinterstore(key, [self.key] + [o.key for o in other_sets])
-        return Set(key)
+        self.redis.sinterstore(key, [self.key] + [o.key for o in other_sets])
+        return Set(key, redis=self.redis)
 
     def difference(self, key, *other_sets):
         """
@@ -318,39 +387,50 @@ class Set(Container):
         :param other_sets: list of other ``Set``.
         :rtype: Set
 
-        >>> s1 = Set('key1')
-        >>> s2 = Set('key2')
+        >>> s1 = rtol.Set('key1', redis)
+        >>> s2 = rtol.Set('key2', redis)
         >>> s1.add(['a', 'b', 'c'])
         3
         >>> s2.add(['c', 'e'])
         2
         >>> s3 = s1.difference('key3', s2)
         >>> s3.key
-        u'key3'
-        >>> s3.members
-        set(['a', 'b'])
+        'key3'
+        >>> s3.members == {'a', 'b'}
+        True
         >>> s1.clear()
         >>> s2.clear()
         >>> s3.clear()
+
         """
 
-        if not isinstance(key, str) and not isinstance(key, unicode):
-            raise ValueError("Expect a (unicode) string as key")
-        key = unicode(key)
-
-        self.db.sdiffstore(key, [self.key] + [o.key for o in other_sets])
-        return Set(key)
+        self.redis.sdiffstore(key, [self.key] + [o.key for o in other_sets])
+        return Set(key, redis=self.redis)
 
     def update(self, *other_sets):
         """Update the set, adding elements from all other_sets.
 
         :param other_sets: list of ``Set``
         :rtype: None
+
+        >>> s1 = rtol.Set('key1', redis)
+        >>> s1.add(['a', 'b', 'c'])
+        3
+        >>> s2 = rtol.Set('key2', redis)
+        >>> s2.add(['b', 'c', 'd'])
+        3
+        >>> s1.update(s2)
+        >>> s1.members == {'a', 'b', 'c', 'd'}
+        True
+        >>> s1.clear()
+        >>> s2.clear()
+
         """
-        self.db.sunionstore(self.key, [self.key] + [o.key for o in other_sets])
+        self.redis.sunionstore(
+            self.key, [self.key] + [o.key for o in other_sets])
 
     def __ior__(self, other_set):
-        self.db.sunionstore(self.key, [self.key, other_set.key])
+        self.redis.sunionstore(self.key, [self.key, other_set.key])
         return self
 
     def intersection_update(self, *other_sets):
@@ -359,11 +439,25 @@ class Set(Container):
 
         :param other_sets: list of ``Set``
         :rtype: None
+
+        >>> s1 = rtol.Set('key1', redis)
+        >>> s1.add(['a', 'b', 'c'])
+        3
+        >>> s2 = rtol.Set('key2', redis)
+        >>> s2.add(['b', 'c', 'd'])
+        3
+        >>> s1.intersection_update(s2)
+        >>> s1.members == {'b', 'c'}
+        True
+        >>> s1.clear()
+        >>> s2.clear()
+
         """
-        self.db.sinterstore(self.key, [o.key for o in [self.key] + other_sets])
+        self.redis.sinterstore(
+            self.key, [self.key] + [o.key for o in other_sets])
 
     def __iand__(self, other_set):
-        self.db.sinterstore(self.key, [self.key, other_set.key])
+        self.redis.sinterstore(self.key, [self.key, other_set.key])
         return self
 
     def difference_update(self, *other_sets):
@@ -372,19 +466,33 @@ class Set(Container):
 
         :param other_sets: list of ``Set``
         :rtype: None
+
+        >>> s1 = rtol.Set('key1', redis)
+        >>> s1.add(['a', 'b', 'c'])
+        3
+        >>> s2 = rtol.Set('key2', redis)
+        >>> s2.add(['b', 'c', 'd'])
+        3
+        >>> s1.difference_update(s2)
+        >>> s1.members
+        {'a'}
+        >>> s1.clear()
+        >>> s2.clear()
+
         """
-        self.db.sdiffstore(self.key, [o.key for o in [self.key] + other_sets])
+        self.redis.sdiffstore(
+            self.key, [self.key] + [o.key for o in other_sets])
 
     def __isub__(self, other_set):
-        self.db.sdiffstore(self.key, [self.key, other_set.key])
+        self.redis.sdiffstore(self.key, [self.key, other_set.key])
         return self
 
     def all(self):
-        return self.db.smembers(self.key)
+        return {self.deserialize(m) for m in self.redis.smembers(self.key)}
 
     members = property(all)
     """
-    return the real content of the Set.
+    Return the stored content of the Set.
     """
 
     def copy(self, key):
@@ -393,13 +501,36 @@ class Set(Container):
 
         .. WARNING::
             If the new key already contains a value, it will be overwritten.
+
+        >>> s1 = rtol.Set('key1', redis)
+        >>> s1.add(['a', 'b', 'c'])
+        3
+        >>> s2 = s1.copy('key2')
+        >>> s2.members == {"a", "b", "c"}
+        True
+        >>> s1.clear()
+        >>> s2.clear()
+
         """
-        copy = Set(key=key, db=self.db)
-        copy.clear()
-        copy |= self
+
+        copy = Set(key, redis=self.redis)
+        self.redis.sunionstore(copy.key, self.key, self.key)
         return copy
 
     def __iter__(self):
+        """Get an iterator for this set
+
+        >>> s = rtol.Set('test', redis)
+        >>> s.add('a', 'b', 'b', 'c')
+        3
+        >>> for count, letter in enumerate(s):
+        ...     print('{} Ah, Ah, Ah'.format(count+1))
+        1 Ah, Ah, Ah
+        2 Ah, Ah, Ah
+        3 Ah, Ah, Ah
+        >>> s.clear()
+
+        """
         return self.members.__iter__()
 
     def sinter(self, *other_sets):
@@ -409,7 +540,7 @@ class Set(Container):
         .. NOTE::
             This function return an actual ``set`` object (from python) and not a ``Set``. See func:``intersection``.
         """
-        return self.db.sinter([self.key] + [s.key for s in other_sets])
+        return self.redis.sinter([self.key] + [self.key for s in other_sets])
 
     def sunion(self, *other_sets):
         """
@@ -418,7 +549,7 @@ class Set(Container):
         .. NOTE::
             This function return an actual ``set`` object (from python) and not a ``Set``.
         """
-        return self.db.sunion([self.key] + [s.key for s in other_sets])
+        return self.redis.sunion([self.key] + [self.key for s in other_sets])
 
     def sdiff(self, *other_sets):
         """
@@ -429,36 +560,51 @@ class Set(Container):
             See function difference.
 
         """
-        return self.db.sdiff([self.key] + [s.key for s in other_sets])
+        return self.redis.sdiff([self.key] + [self.key for s in other_sets])
 
     def scard(self):
         """
         Returns the cardinality of the Set.
 
+        >>> s = rtol.Set('test', redis)
+        >>> s.add(['a', 'b', 'c'])
+        3
+        >>> s.scard()
+        3
+        >>> s.clear()
+
         :rtype: String containing the cardinality.
 
         """
-        return self.db.scard(self.key)
+        return self.redis.scard(self.key)
 
     def sismember(self, value):
         """
         Return ``True`` if the provided value is in the ``Set``.
 
+        >>> s = rtol.Set('test', redis)
+        >>> s.add(['a', 'b', 'c'])
+        3
+        >>> s.sismember('d')
+        False
+        >>> s.clear()
+
         """
-        return self.db.sismember(self.key, value)
+        return self.redis.sismember(self.key, self.serialize(value))
 
     def srandmember(self):
         """
         Return a random member of the set.
 
-        >>> s = Set("test")
+        >>> s = rtol.Set('test', redis)
         >>> s.add(['a', 'b', 'c'])
         3
-        >>> s.srandmember() # doctest: +ELLIPSIS
-        '...'
-        >>> # 'a', 'b' or 'c'
+        >>> s.srandmember() in { 'a', 'b', 'c' }
+        True
+        >>> s.clear()
+
         """
-        return self.db.srandmember(self.key)
+        return self.deserialize(self.redis.srandmember(self.key))
 
     add = sadd
     """see sadd"""
@@ -470,7 +616,7 @@ class Set(Container):
     __len__ = scard
 
 
-class List(Container):
+class List(Collection):
     """
     This class represent a list object as seen in redis.
     """
@@ -480,6 +626,7 @@ class List(Container):
         Returns all items in the list.
         """
         return self.lrange(0, -1)
+
     members = property(all)
     """Return all items in the list."""
 
@@ -487,7 +634,7 @@ class List(Container):
         """
         Returns the length of the list.
         """
-        return self.db.llen(self.key)
+        return self.redis.llen(self.key)
 
     __len__ = llen
 
@@ -501,7 +648,7 @@ class List(Container):
             raise TypeError
 
     def __setitem__(self, index, value):
-        self.lset(index, value)
+        self.lset(index, self.serialize(value))
 
     def lrange(self, start, stop):
         """
@@ -510,15 +657,15 @@ class List(Container):
         :param start: integer representing the start index of the range
         :param stop: integer representing the size of the list.
 
-        >>> l = List("test")
+        >>> l = rtol.List('test', redis)
         >>> l.push(['a', 'b', 'c', 'd'])
-        4L
+        4
         >>> l.lrange(1, 2)
         ['b', 'c']
         >>> l.clear()
 
         """
-        return self.db.lrange(self.key, start, stop)
+        return [self.deserialize(v) for v in self.redis.lrange(self.key, start, stop)]
 
     def lpush(self, *values):
         """
@@ -527,12 +674,14 @@ class List(Container):
         :param values: a list of values or single value to push
         :rtype: long representing the number of values pushed.
 
-        >>> l = List("test")
+        >>> l = rtol.List('test', redis)
         >>> l.lpush(['a', 'b'])
-        2L
+        2
         >>> l.clear()
+
         """
-        return self.db.lpush(self.key, *_parse_values(values))
+        values = [self.serialize(v) for v in _parse_values(values)]
+        return self.redis.lpush(self.key, *values)
 
     def rpush(self, *values):
         """
@@ -541,17 +690,19 @@ class List(Container):
         :param values: a list of values or single value to push
         :rtype: long representing the size of the list.
 
-        >>> l = List("test")
+        >>> l = rtol.List('test', redis)
         >>> l.lpush(['a', 'b'])
-        2L
+        2
         >>> l.rpush(['c', 'd'])
-        4L
+        4
         >>> l.members
         ['b', 'a', 'c', 'd']
         >>> l.clear()
+
         """
 
-        return self.db.rpush(self.key, *_parse_values(values))
+        values = [self.serialize(v) for v in _parse_values(values)]
+        return self.redis.rpush(self.key, *values)
 
     def extend(self, iterable):
         """
@@ -559,7 +710,7 @@ class List(Container):
 
         :param iterable: an iterable objects.
         """
-        self.rpush(*[e for e in iterable])
+        self.rpush(*[self.serialize(e) for e in iterable])
 
     def count(self, value):
         """
@@ -576,7 +727,7 @@ class List(Container):
         :return: the popped value.
 
         """
-        return self.db.lpop(self.key)
+        return self.deserialize(self.redis.lpop(self.key))
 
     def rpop(self):
         """
@@ -584,7 +735,7 @@ class List(Container):
 
         :return: the popped value.
         """
-        return self.db.rpop(self.key)
+        return self.deserialize(self.redis.rpop(self.key))
 
     def rpoplpush(self, key):
         """
@@ -594,19 +745,19 @@ class List(Container):
         :param key: the key of the list receiving the popped value.
         :return: the popped (and pushed) value
 
-        >>> l = List('list1')
+        >>> l = rtol.List('list1', redis)
         >>> l.push(['a', 'b', 'c'])
-        3L
+        3
         >>> l.rpoplpush('list2')
         'c'
-        >>> l2 = List('list2')
+        >>> l2 = rtol.List('list2', redis)
         >>> l2.members
         ['c']
         >>> l.clear()
         >>> l2.clear()
 
         """
-        return self.db.rpoplpush(self.key, key)
+        return self.deserialize(self.redis.rpoplpush(self.key, key))
 
     def lrem(self, value, num=1):
         """
@@ -614,18 +765,25 @@ class List(Container):
 
         :return: 1 if the value has been removed, 0 otherwise
         """
-        return self.db.lrem(self.key, value, num)
+        return self.redis.lrem(self.key, value, num)
 
     def reverse(self):
         """
         Reverse the list in place.
 
+        ..NOTE:
+            This command must make two network calls, transfering the list each way
+            It is still atomic though
+
         :return: None
         """
-        r = self[:]
-        r.reverse()
-        self.clear()
-        self.extend(r)
+        def reversefn(pipe):
+            values = pipe.lrange(self.key, 0, -1)
+            pipe.multi()
+            pipe.delete(self.key)
+            pipe.lpush(self.key, values)
+
+        self.redis.transaction(reversefn, self.key)
 
     def copy(self, key):
         """Copy the list to a new list.
@@ -633,9 +791,14 @@ class List(Container):
         ..WARNING:
             If destination key already contains a value, it clears it before copying.
         """
-        copy = List(key, self.db)
-        copy.clear()
-        copy.extend(self)
+        def copyfn(pipe):
+            values = pipe.lrange(self.key, 0, -1)
+            pipe.multi()
+            pipe.delete(key)
+            pipe.rpush(key, values)
+
+        self.redis.transaction(copyfn, self.key, key)
+        copy = List(key, self.redis)
         return copy
 
     def ltrim(self, start, end):
@@ -644,7 +807,7 @@ class List(Container):
 
         :return: None
         """
-        return self.db.ltrim(self.key, start, end)
+        return self.redis.ltrim(self.key, start, end)
 
     def lindex(self, idx):
         """
@@ -652,18 +815,19 @@ class List(Container):
 
         :param idx: the index to fetch the value.
         :return: the value or None if out of range.
-        """
-        return self.db.lindex(self.key, idx)
 
-    def lset(self, idx, value=0):
+        """
+        return self.deserialize(self.redis.lindex(self.key, idx))
+
+    def lset(self, idx, value):
         """
         Set the value in the list at index *idx*
 
         :return: True is the operation succeed.
 
-        >>> l = List('test')
+        >>> l = rtol.List('test', redis)
         >>> l.push(['a', 'b', 'c'])
-        3L
+        3
         >>> l.lset(0, 'e')
         True
         >>> l.members
@@ -671,14 +835,33 @@ class List(Container):
         >>> l.clear()
 
         """
-        return self.db.lset(self.key, idx, value)
+        return self.redis.lset(self.key, idx, self.serialize(value))
 
     def __iter__(self):
+        """Get an iterator for this list
+
+        >>> l = rtol.List('test', redis)
+        >>> l.lpush('a', 'b', 'c')
+        3
+        >>> for letter in l:
+        ...     print(letter)
+        c
+        b
+        a
+        >>> l.clear()
+
+        """
         return self.members.__iter__()
 
     def __repr__(self):
-        return "<%s '%s' %s>" % (self.__class__.__name__, self.key,
-                self.members)
+        """Get the string representation of this set
+
+        >>> l = rtol.List('test', redis)
+        >>> repr(l)
+        "<List 'test'>"
+
+        """
+        return "<%s '%s'>" % (self.__class__.__name__, self.key)
 
     __len__ = llen
     remove = lrem
@@ -691,92 +874,7 @@ class List(Container):
     append = rpush
 
 
-class TypedList(object):
-    """Create a container to store a list of objects in Redis.
-
-    Arguments:
-        key -- the Redis key this container is stored at
-        target_type -- can be a Python object or a redisco model class.
-
-    Optional Arguments:
-        type_args -- additional args to pass to type constructor (tuple)
-        type_kwargs -- additional kwargs to pass to type constructor (dict)
-
-    If target_type is not a redisco model class, the target_type should
-    also a callable that casts the (string) value of a list element into
-    target_type. E.g. str, unicode, int, float -- using this format:
-
-        target_type(string_val_of_list_elem, *type_args, **type_kwargs)
-
-    target_type also accepts a string that refers to a redisco model.
-    """
-
-    def __init__(self, key, target_type, type_args=[], type_kwargs={}, **kwargs):
-        self.list = List(key, **kwargs)
-        self.klass = self.value_type(target_type)
-        self._klass_args = type_args
-        self._klass_kwargs = type_kwargs
-        from models.base import Model
-        self._redisco_model = issubclass(self.klass, Model)
-
-    def value_type(self, target_type):
-        if isinstance(target_type, basestring):
-            t = target_type
-            from models.base import get_model_from_key
-            target_type = get_model_from_key(target_type)
-            if target_type is None:
-                raise ValueError("Unknown Redisco class %s" % t)
-        return target_type
-
-    def typecast_item(self, value):
-        if self._redisco_model:
-            return self.klass.objects.get_by_id(value)
-        else:
-            return self.klass(value, *self._klass_args, **self._klass_kwargs)
-
-    def typecast_iter(self, values):
-        if self._redisco_model:
-            return filter(lambda o: o is not None, [self.klass.objects.get_by_id(v) for v in values])
-        else:
-            return [self.klass(v, *self._klass_args, **self._klass_kwargs) for v in values]
-
-    def all(self):
-        """Returns all items in the list."""
-        return self.typecast_iter(self.list.all())
-
-    def __len__(self):
-        return len(self.list)
-
-    def __getitem__(self, index):
-        val = self.list[index]
-        if isinstance(index, slice):
-            return self.typecast_iter(val)
-        else:
-            return self.typecast_item(val)
-
-    def typecast_stor(self, value):
-        if self._redisco_model:
-            return value.id
-        else:
-            return value
-
-    def append(self, value):
-        self.list.append(self.typecast_stor(value))
-
-    def extend(self, iter):
-        self.list.extend(map(lambda i: self.typecast_stor(i), iter))
-
-    def __setitem__(self, index, value):
-        self.list[index] = self.typecast_stor(value)
-
-    def __iter__(self):
-        for i in xrange(len(self.list)):
-            yield self[i]
-
-    def __repr__(self):
-        return repr(self.typecast_iter(self.list))
-
-class SortedSet(Container):
+class SortedSet(Collection):
     """
     This class represents a SortedSet in redis.
     Use it if you want to arrange your set in any order.
@@ -785,9 +883,9 @@ class SortedSet(Container):
 
     def __getitem__(self, index):
         if isinstance(index, slice):
-            return self.zrange(index.start, index.stop)
+            return [self.deserialize(v) for v in self.zrange(index.start, index.stop)]
         else:
-            return self.zrange(index, index)[0]
+            return self.deserialize(self.zrange(index, index)[0])
 
     def score(self, member):
         """
@@ -810,17 +908,13 @@ class SortedSet(Container):
         """
         Returns the members of the set in reverse.
         """
-        return self.zrevrange(0, -1)
+        return [self.deserialize(v) for v in self.zrevrange(0, -1)]
 
     def __iter__(self):
         return self.members.__iter__()
 
     def __reversed__(self):
         return self.revmembers.__iter__()
-
-    # def __repr__(self):
-    #     return "<%s '%s' %s>" % (self.__class__.__name__, self.key,
-    #                              self.members)
 
     @property
     def _min_score(self):
@@ -907,7 +1001,7 @@ class SortedSet(Container):
         :param limit: limit the result to *n* elements
         :param offset: Skip the first *n* elements
 
-        >>> s = SortedSet("foo")
+        >>> s = rtol.SortedSet('foo', redis)
         >>> s.add('a', 10)
         1
         >>> s.add('b', 20)
@@ -917,6 +1011,7 @@ class SortedSet(Container):
         >>> s.between(20, 30)
         ['b', 'c']
         >>> s.clear()
+
         """
         if limit is not None and offset is None:
             offset = 0
@@ -930,21 +1025,28 @@ class SortedSet(Container):
         :param members: a list of item or a single item
         :param score: the score the assign to the item(s)
 
-        >>> s = SortedSet("foo")
-        >>> s.add('a', 10)
+        >>> s = rtol.SortedSet('foo', redis)
+        >>> s.add('a')
         1
+        >>> s.zscore('a')
+        1.0
         >>> s.add('b', 20)
         1
+        >>> s.zscore('b')
+        20.0
+        >>> s.add({'c':5, 'd':6})
+        2
         >>> s.clear()
+
         """
         _members = []
         if not isinstance(members, dict):
-            _members = [members, score]
+            _members = [self.serialize(members), score]
         else:
             for member, score in members.items():
-                _members += [member, score]
+                _members += [self.serialize(member), score]
 
-        return self.db.zadd(self.key, *_members)
+        return self.redis.zadd(self.key, *_members)
 
     def zrem(self, *values):
         """
@@ -953,7 +1055,7 @@ class SortedSet(Container):
         :return: True if **at least one** value is successfully
                  removed, False otherwise
 
-        >>> s = SortedSet('foo')
+        >>> s = rtol.SortedSet('foo', redis)
         >>> s.add('a', 10)
         1
         >>> s.zrem('a')
@@ -961,8 +1063,10 @@ class SortedSet(Container):
         >>> s.members
         []
         >>> s.clear()
+
         """
-        return self.db.zrem(self.key, *_parse_values(values))
+        values = [self.serialize(v) for v in _parse_values(values)]
+        return self.redis.zrem(self.key, *values)
 
     def zincrby(self, att, value=1):
         """
@@ -972,20 +1076,21 @@ class SortedSet(Container):
         :param value: the value to add to the current score
         :returns: the new score of the member
 
-        >>> s = SortedSet("foo")
+        >>> s = rtol.SortedSet('foo', redis)
         >>> s.add('a', 10)
         1
-        >>> s.zincrby("a", 10)
+        >>> s.zincrby('a', 10)
         20.0
         >>> s.clear()
+
         """
-        return self.db.zincrby(self.key, att, value)
+        return self.redis.zincrby(self.key, self.serialize(att), value)
 
     def zrevrank(self, member):
         """
         Returns the ranking in reverse order for the member
 
-        >>> s = SortedSet("foo")
+        >>> s = rtol.SortedSet('foo', redis)
         >>> s.add('a', 10)
         1
         >>> s.add('b', 20)
@@ -993,8 +1098,9 @@ class SortedSet(Container):
         >>> s.revrank('a')
         1
         >>> s.clear()
+
         """
-        return self.db.zrevrank(self.key, member)
+        return self.redis.zrevrank(self.key, self.serialize(member))
 
     def zrange(self, start, stop, withscores=False):
         """
@@ -1004,7 +1110,7 @@ class SortedSet(Container):
         :param withscore: True if the score of the elements should
                           also be returned
 
-        >>> s = SortedSet("foo")
+        >>> s = rtol.SortedSet('foo', redis)
         >>> s.add('a', 10)
         1
         >>> s.add('b', 20)
@@ -1016,15 +1122,19 @@ class SortedSet(Container):
         >>> s.zrange(1, 3, withscores=True)
         [('b', 20.0), ('c', 30.0)]
         >>> s.clear()
+
         """
-        return self.db.zrange(self.key, start, stop, withscores=withscores)
+        if withscores:
+            return [(self.deserialize(v), s) for (v, s) in self.redis.zrange(self.key, start, stop, withscores=True)]
+        else:
+            return [self.deserialize(v) for v in self.redis.zrange(self.key, start, stop, withscores=False)]
 
     def zrevrange(self, start, end, **kwargs):
         """
         Returns the range of items included between ``start`` and ``stop``
         in reverse order (from high to low)
 
-        >>> s = SortedSet("foo")
+        >>> s = rtol.SortedSet('foo', redis)
         >>> s.add('a', 10)
         1
         >>> s.add('b', 20)
@@ -1034,14 +1144,15 @@ class SortedSet(Container):
         >>> s.zrevrange(1, 2)
         ['b', 'a']
         >>> s.clear()
+
         """
-        return self.db.zrevrange(self.key, start, end, **kwargs)
+        return[self.deserialize(v) for v in self.redis.zrevrange(self.key, start, end, **kwargs)]
 
     def zrangebyscore(self, min, max, **kwargs):
         """
         Returns the range of elements included between the scores (min and max)
 
-        >>> s = SortedSet("foo")
+        >>> s = rtol.SortedSet('foo', redis)
         >>> s.add('a', 10)
         1
         >>> s.add('b', 20)
@@ -1051,14 +1162,15 @@ class SortedSet(Container):
         >>> s.zrangebyscore(20, 30)
         ['b', 'c']
         >>> s.clear()
+
         """
-        return self.db.zrangebyscore(self.key, min, max, **kwargs)
+        return [self.deserialize(v) for v in self.redis.zrangebyscore(self.key, min, max, **kwargs)]
 
     def zrevrangebyscore(self, max, min, **kwargs):
         """
         Returns the range of elements included between the scores (min and max)
 
-        >>> s = SortedSet("foo")
+        >>> s = rtol.SortedSet('foo', redis)
         >>> s.add('a', 10)
         1
         >>> s.add('b', 20)
@@ -1068,14 +1180,15 @@ class SortedSet(Container):
         >>> s.zrangebyscore(20, 20)
         ['b']
         >>> s.clear()
+
         """
-        return self.db.zrevrangebyscore(self.key, max, min, **kwargs)
+        return [self.deserialize(v) for v in self.redis.zrevrangebyscore(self.key, max, min, **kwargs)]
 
     def zcard(self):
         """
         Returns the cardinality of the SortedSet.
 
-        >>> s = SortedSet("foo")
+        >>> s = rtol.SortedSet('foo', redis)
         >>> s.add("a", 1)
         1
         >>> s.add("b", 2)
@@ -1085,21 +1198,23 @@ class SortedSet(Container):
         >>> s.zcard()
         3
         >>> s.clear()
+
         """
-        return self.db.zcard(self.key)
+        return self.redis.zcard(self.key)
 
     def zscore(self, elem):
         """
         Return the score of an element
 
-        >>> s = SortedSet("foo")
+        >>> s = rtol.SortedSet('foo', redis)
         >>> s.add("a", 10)
         1
         >>> s.score("a")
         10.0
         >>> s.clear()
+
         """
-        return self.db.zscore(self.key, elem)
+        return self.redis.zscore(self.key, self.serialize(elem))
 
     def zremrangebyrank(self, start, stop):
         """
@@ -1108,7 +1223,7 @@ class SortedSet(Container):
 
         :return: the number of item deleted
 
-        >>> s = SortedSet("foo")
+        >>> s = rtol.SortedSet('foo', redis)
         >>> s.add("a", 10)
         1
         >>> s.add("b", 20)
@@ -1120,8 +1235,9 @@ class SortedSet(Container):
         >>> s.members
         ['a']
         >>> s.clear()
+
         """
-        return self.db.zremrangebyrank(self.key, start, stop)
+        return self.redis.zremrangebyrank(self.key, start, stop)
 
     def zremrangebyscore(self, min_value, max_value):
         """
@@ -1130,7 +1246,7 @@ class SortedSet(Container):
 
         :returns: the number of items deleted.
 
-        >>> s = SortedSet("foo")
+        >>> s = rtol.SortedSet('foo', redis)
         >>> s.add("a", 10)
         1
         >>> s.add("b", 20)
@@ -1142,22 +1258,24 @@ class SortedSet(Container):
         >>> s.members
         ['c']
         >>> s.clear()
+
         """
 
-        return self.db.zremrangebyscore(self.key, min_value, max_value)
+        return self.redis.zremrangebyscore(self.key, min_value, max_value)
 
     def zrank(self, elem):
         """
         Returns the rank of the element.
 
-        >>> s = SortedSet("foo")
-        >>> s.add("a", 10)
-        1
+        >>> s = rtol.SortedSet('foo', redis)
+        >>> s.add({"a": 30, 'b':20, 'c':10})
+        3
         >>> s.zrank("a")
-        0
+        2
         >>> s.clear()
+
         """
-        return self.db.zrank(self.key, elem)
+        return self.redis.zrank(self.key, self.serialize(elem))
 
     def eq(self, value):
         """
@@ -1174,39 +1292,29 @@ class SortedSet(Container):
     remove = zrem
 
 
-class NonPersistentList(object):
-    def __init__(self, l):
-        self._list = l
-
-    @property
-    def members(self):
-        return self._list
-
-    def __iter__(self):
-        return iter(self.members)
-
-    def __len__(self):
-        return len(self._list)
-
-
-class Hash(Container, collections.MutableMapping):
+class Hash(Collection, collections.MutableMapping):
 
     def __iter__(self):
         return self.hgetall().__iter__()
 
     def __repr__(self):
-        return "<%s '%s' %s>" % (self.__class__.__name__,
-                                 self.key, self.hgetall())
+        """Gets the string representation of this object
+
+        >>> h = rtol.Hash('test', redis)
+        >>> repr(h)
+        "<Hash 'test'>"
+
+        """
+        return "<%s '%s'>" % (self.__class__.__name__, self.key)
 
     def _set_dict(self, new_dict):
         self.clear()
         self.update(new_dict)
 
     def hlen(self):
+        """Returns the number of elements in the Hash.
         """
-        Returns the number of elements in the Hash.
-        """
-        return self.db.hlen(self.key)
+        return self.redis.hlen(self.key)
 
     def hset(self, member, value):
         """
@@ -1216,34 +1324,36 @@ class Hash(Container, collections.MutableMapping):
                   stored, 0 if the field existed and the value has been
                   updated.
 
-        >>> h = Hash("foo")
+        >>> h = rtol.Hash('foo', redis)
         >>> h.hset("bar", "value")
-        1L
+        1
         >>> h.clear()
-        """
-        return self.db.hset(self.key, member, value)
 
-    def hdel(self, *members):
         """
-        Delete one or more hash field.
+        return self.redis.hset(self.key, member, self.serialize(value))
 
-        :param members: on or more fields to remove.
+    def hdel(self, *hkeys):
+        """
+        Delete one or more hash fields by key.
+
+        :param hkeys: on or more fields to remove.
         :return: the number of fields that were removed
 
-        >>> h = Hash("foo")
+        >>> h = rtol.Hash('foo', redis)
         >>> h.hset("bar", "value")
-        1L
+        1
         >>> h.hdel("bar")
         1
         >>> h.clear()
+
         """
-        return self.db.hdel(self.key, *_parse_values(members))
+        return self.redis.hdel(self.key, *hkeys)
 
     def hkeys(self):
         """
         Returns all fields name in the Hash
         """
-        return self.db.hkeys(self.key)
+        return self.redis.hkeys(self.key)
 
     def hgetall(self):
         """
@@ -1251,7 +1361,7 @@ class Hash(Container, collections.MutableMapping):
 
         :rtype: dict
         """
-        return self.db.hgetall(self.key)
+        return dict([(k, self.deservialize(v)) for (k, v) in self.redis.hgetall(self.key)])
 
     def hvals(self):
         """
@@ -1259,39 +1369,40 @@ class Hash(Container, collections.MutableMapping):
 
         :rtype: list
         """
-        return self.db.hvals(self.key)
+        return [self.deserialize(v) for v in self.redis.hvals(self.key)]
 
     def hget(self, field):
         """
         Returns the value stored in the field, None if the field doesn't exist.
         """
-        return self.db.hget(self.key, field)
+        return self.deserialize(self.redis.hget(self.key, field))
 
     def hexists(self, field):
         """
         Returns ``True`` if the field exists, ``False`` otherwise.
         """
-        return self.db.hexists(self.key, field)
+        return self.redis.hexists(self.key, field)
 
     def hincrby(self, field, increment=1):
         """
         Increment the value of the field.
         :returns: the value of the field after incrementation
 
-        >>> h = Hash("foo")
+        >>> h = rtol.Hash('foo', redis)
         >>> h.hincrby("bar", 10)
-        10L
+        10
         >>> h.hincrby("bar", 2)
-        12L
+        12
         >>> h.clear()
+
         """
-        return self.db.hincrby(self.key, field, increment)
+        return self.redis.hincrby(self.key, field, increment)
 
     def hmget(self, fields):
         """
         Returns the values stored in the fields.
         """
-        return self.db.hmget(self.key, fields)
+        return [self.deserialize(v) for v in self.redis.hmget(self.key, fields)]
 
     def hmset(self, mapping):
         """
@@ -1299,7 +1410,8 @@ class Hash(Container, collections.MutableMapping):
 
         :param mapping: a dict with keys and values
         """
-        return self.db.hmset(self.key, mapping)
+        mapping = dict([(k, self.serialize(v)) for (k, v) in mapping])
+        return self.redis.hmset(self.key, mapping)
 
     keys = hkeys
     values = hvals

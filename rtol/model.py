@@ -258,7 +258,7 @@ class Model(metaclass=ModelType):
         for prop in props:
             value = prop.value(self)
             if value is not prop.null:
-                mappings[prop.key(self)] = prop.serializer(value)
+                mappings[prop.key(self)] = prop.serialize(value)
 
         self.redis.mset(mappings)
 

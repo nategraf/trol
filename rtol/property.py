@@ -54,8 +54,8 @@ class Property:
         self.name = name
         self.autocommit = autocommit
         self.alwaysfetch = alwaysfetch
-        self.serializer = serializer
-        self.deserializer = deserializer
+        self.serialize = serializer
+        self.deserialize = deserializer
 
     def __get__(self, obj, typ=None):
         if obj is None:
@@ -89,7 +89,7 @@ class Property:
         response = obj.redis.get(self.key(obj))
 
         if response is not None:
-            value = self.deserializer(response)
+            value = self.deserialize(response)
         else:
             value = self.null
 
@@ -111,7 +111,7 @@ class Property:
         if self.value(obj) is self.null:
             return True
 
-        return obj.redis.set(self.key(obj), self.serializer(value))
+        return obj.redis.set(self.key(obj), self.serialize(value))
 
     def delete(self, obj):
         """Deletes the key of this property from Redis
