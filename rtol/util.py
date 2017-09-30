@@ -22,6 +22,14 @@ def serialize_bytes(obj):
     return obj
 
 
+serializers = {
+    str: serialize_str,
+    int: serialize_int,
+    float: serialize_float,
+    bytes: serialize_bytes
+}
+
+
 class Serializer:
     """A class containing the provided serialize functions for selected type
 
@@ -40,7 +48,7 @@ class Serializer:
 
     def __init__(self, typ):
         try:
-            self.func = self._typ_mappings[typ]
+            self.func = serializers[typ]
         except KeyError:
             raise ValueError("{} is not supported".format(typ.__name__))
 
@@ -54,13 +62,6 @@ class Serializer:
             object: A serialized version acceptable to redis-py
         """
         return self.func(obj)
-
-    _typ_mappings = {
-        str: serialize_str,
-        int: serialize_int,
-        float: serialize_float,
-        bytes: serialize_bytes
-    }
 
 
 def deserialize_str(byts):
@@ -77,6 +78,14 @@ def deserialize_float(byts):
 
 def deserialize_bytes(byts):
     return byts
+
+
+deserializers = {
+    str: deserialize_str,
+    int: deserialize_int,
+    float: deserialize_float,
+    bytes: deserialize_bytes
+}
 
 
 class Deserializer:
@@ -96,7 +105,7 @@ class Deserializer:
 
     def __init__(self, typ):
         try:
-            self.func = self._typ_mappings[typ]
+            self.func = deserializers[typ]
         except KeyError:
             raise ValueError("{} is not supported".format(typ.__name__))
 
@@ -110,10 +119,3 @@ class Deserializer:
             object: An object of the desired type
         """
         return self.func(obj)
-
-    _typ_mappings = {
-        str: deserialize_str,
-        int: deserialize_int,
-        float: deserialize_float,
-        bytes: deserialize_bytes
-    }
