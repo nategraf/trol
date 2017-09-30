@@ -28,6 +28,46 @@ serializers = {
     float: serialize_float,
     bytes: serialize_bytes
 }
+""" dict[type, Callable[[object], bytes]]: A dictionary of serializers known rtol classes
+
+Additonal entries can be added to support new serializable types
+
+>>> import redis
+>>> import rtol
+>>> class HotNewClass:
+...     def __init__(self, howhot):
+...         self.howhot = howhot
+...
+>>> def hotnew_serializer(hnc):
+...     print("HNC IS BEING SERIALIZED!")
+...     return '<HOT>{}'.format(hnc.howhot)
+...
+>>> rtol.serializers[HotNewClass] = hotnew_serializer
+>>> def hotnew_deserializer(byts):
+...     print("RETURN OF THE HNC!")
+...     howhot = int(byts.decode('utf-8').strip('<HOT>'))
+...     return HotNewClass(howhot)
+...
+>>> rtol.deserializers[HotNewClass] = hotnew_deserializer
+>>> class SweetModel(rtol.Model):
+...     def __init__(self, ident, redis):
+...         self.id = ident
+...         self.redis = redis
+...
+...     bar = rtol.Property(typ=HotNewClass)
+...
+>>> r = redis.Redis('localhost')
+>>> sm = SweetModel('xyz', r)
+>>> sm.bar = HotNewClass(10)
+HNC IS BEING SERIALIZED!
+>>> r.get(sm.key + ':bar')
+b'<HOT>10'
+>>> sm.invalidate()
+>>> sm.bar.howhot
+RETURN OF THE HNC!
+10
+
+"""
 
 
 class Serializer:
@@ -86,6 +126,11 @@ deserializers = {
     float: deserialize_float,
     bytes: deserialize_bytes
 }
+""" dict[type, Callable[[bytes], object]]: A dictionary of deserializers known rtol classes
+
+Additonal entries can be added to support new deserializable types
+There should be an entry here for each one in serializers
+"""
 
 
 class Deserializer:

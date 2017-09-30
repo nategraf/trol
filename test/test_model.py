@@ -2,7 +2,7 @@ import unittest
 import doctest
 from redis import StrictRedis
 from .common import ensure_redis_is_online
-from rtol import Model, ModelType, Property, StrProperty, IntProperty, FloatProperty, BytesProperty
+from rtol import Model, ModelType, Property
 
 
 class Alpha(Model):
@@ -59,10 +59,10 @@ class X(Model):
     def __init__(self, id):
         self.id = id
 
-    one = BytesProperty(autocommit=False)
-    two = StrProperty('2')
-    three = IntProperty(alwaysfetch=True)
-    four = FloatProperty(autocommit=False)
+    one = Property(autocommit=False, typ=bytes)
+    two = Property('2', typ=str)
+    three = Property(alwaysfetch=True, typ=int)
+    four = Property(autocommit=False, typ=float)
 
 
 class OnlineModelTests(unittest.TestCase):

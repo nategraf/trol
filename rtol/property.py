@@ -50,12 +50,27 @@ class Property:
         """
         return "_rtol_property_{}".format(name)
 
-    def __init__(self, name=None, autocommit=None, alwaysfetch=None, serializer=pickle.dumps, deserializer=pickle.loads):
+    def __init__(self, name=None, typ=None, autocommit=None, alwaysfetch=None, serializer=None, deserializer=None):
         self.name = name
         self.autocommit = autocommit
         self.alwaysfetch = alwaysfetch
-        self.serialize = serializer
-        self.deserialize = deserializer
+
+        self._typ = typ
+        if serializer is None:
+            if typ is None:
+                self.serialize = pickle.dumps
+            else:
+                self.serialize = Serializer(typ)
+        else:
+            self.serialize = serializer
+
+        if deserializer is None:
+            if typ is None:
+                self.deserialize = pickle.loads
+            else:
+                self.deserialize = Deserializer(typ)
+        else:
+            self.deserialize = deserializer
 
     def __get__(self, obj, typ=None):
         if obj is None:
@@ -177,37 +192,3 @@ class Property:
             value (object): The value to set
         """
         setattr(obj, self.mangle(self.name), value)
-
-# These classes below are small, and that's the point. I'm trying to show how easy it is to add a new type of property
-
-
-class StrProperty(Property):
-    def __init__(self, name=None, autocommit=None, alwaysfetch=None):
-        serializer = Serializer(str)
-        deserializer = Deserializer(str)
-        super().__init__(name=name, autocommit=autocommit, alwaysfetch=alwaysfetch,
-                         serializer=serializer, deserializer=deserializer)
-
-
-class IntProperty(Property):
-    def __init__(self, name=None, autocommit=None, alwaysfetch=None):
-        serializer = Serializer(int)
-        deserializer = Deserializer(int)
-        super().__init__(name=name, autocommit=autocommit, alwaysfetch=alwaysfetch,
-                         serializer=serializer, deserializer=deserializer)
-
-
-class FloatProperty(Property):
-    def __init__(self, name=None, autocommit=None, alwaysfetch=None):
-        serializer = Serializer(float)
-        deserializer = Deserializer(float)
-        super().__init__(name=name, autocommit=autocommit, alwaysfetch=alwaysfetch,
-                         serializer=serializer, deserializer=deserializer)
-
-
-class BytesProperty(Property):
-    def __init__(self, name=None, autocommit=None, alwaysfetch=None):
-        serializer = Serializer(bytes)
-        deserializer = Deserializer(bytes)
-        super().__init__(name=name, autocommit=autocommit, alwaysfetch=alwaysfetch,
-                         serializer=serializer, deserializer=deserializer)

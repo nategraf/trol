@@ -18,5 +18,5 @@ def setUp(dtest):
 
 def load_tests(loader, tests, ignore):
     tests.addTests(doctest.DocFileSuite(
-        'model.py', 'collection.py', package=rtol, setUp=setUp))
+        'model.py', 'collection.py', 'util.py', package=rtol, setUp=setUp))
     return tests
