@@ -7,7 +7,7 @@ Licenced under the MIT License availible in the root of the RTOL source repo
 It has been modifed to hit the overal model of RTOL, but is largely the same externally
 Thanks to the guys at Redisco for the great work! https://github.com/kiddouk/redisco
 
-Here are the modifications from the origonal Redisco conatiners:
+Here are the modifications from the origonal Redisco conatainers:
     * Values are serialized and deserialized allowing more arbitrary objects to be stored
     * Comparison operations do not trigger network transfer of container members
     * Set copy does not tigger network transfer of set members
@@ -15,11 +15,11 @@ Here are the modifications from the origonal Redisco conatiners:
     * Some functions now use a "scratch-pad" in redis to avoid transfering full collections
     * The ``db`` attribute has been renamed to ``redis`` to match other places in rtol
     * There is no default expire time
-    * A redis connection must be specified on construction
+    * A redis connection must be specified on construction, unless accessed through a Model
     * There is no support for TypedList or NonPersitentList
 
-Unlike properties, containers call out to Redis on every transaction by default
-Caching for containers is a trickier prospect, and therefore is not attempted
+Unlike properties, collections call out to Redis on every transaction by default
+Caching for collections is a trickier prospect, and therefore is not attempted
 
 >>> import rtol
 >>> from redis import Redis
@@ -30,6 +30,7 @@ Caching for containers is a trickier prospect, and therefore is not attempted
 import threading
 import collections
 import pickle
+from rtol import Serializer, Deserializer
 
 
 # Use a guid to make sure that no wil define a colliding key by accident
@@ -50,21 +51,36 @@ def _parse_values(values):
 
 class Collection(object):
     """
-    Base class for all containers. This class should not used directctly
+    Base class for all collections. This class should not used directctly
     This class provides the ``redis`` attribute
     :members:
     """
 
-    def __init__(self, key, redis, serializer=pickle.dumps, deserializer=pickle.loads):
-        self.redis = redis
-        self.key = key
+    def __init__(self, name=None, redis=None, typ=None, key=None, serializer=None, deserializer=None):
+        self.name = name
+        self._redis = redis
+        self._key = key
         self._threadlocal = None
-        self.serialize = serializer
-        self.deserialize = deserializer
+
+        if serializer is None:
+            if typ is None:
+                self.serialize = pickle.dumps
+            else:
+                self.serialize = Serializer(typ)
+        else:
+            self.serialize = serializer
+
+        if deserializer is None:
+            if typ is None:
+                self.deserialize = pickle.loads
+            else:
+                self.deserialize = Deserializer(typ)
+        else:
+            self.deserialize = deserializer
 
     def clear(self):
         """
-        Remove the container from the redis storage
+        Remove the collection from the redis storage
 
         >>> s = rtol.Set('test', redis)
         >>> s.add('1')
@@ -90,11 +106,47 @@ class Collection(object):
         >>> s.members
         set()
 
-
         :param time: time expressed in seconds.
         :rtype: None
         """
         self.redis.expire(self.key, time)
+
+    @property
+    def redis(self):
+        """``redis.Redis``: A connection object for interacting with Redis"""
+        if self._redis is not None:
+            return self._redis
+        else:
+            raise AttributeEror("'{self.__class__.__name__}' has no connection set. If not bound to a class, a collection must have it's connection specified".format(self=self))
+
+    @redis.setter
+    def redis(self, value):
+        self._redis = value
+
+    @property
+    def key(self):
+        """``str``: The key in Redis which contains the data this object references
+
+        Setting this attribute directly to non-None will override ``name`` in determining ``key``
+
+        >>> s = rtol.Set(name='foo')
+        >>> s.key
+        'foo'
+        >>> s.key = 'bar'
+        >>> s.key
+        'bar'
+
+        """
+        if self._key is not None:
+            return self._key
+        if self.name is not None:
+            return self.name
+        else:
+            raise AttributeEror("'{self.__class__.__name__}' has no name or key set. If not bound to a class, a collection must have either it's key or name attribute specified".format(self=self))
+
+    @key.setter
+    def key(self, value):
+        self._key = value
 
     @property
     def pipeline(self):
