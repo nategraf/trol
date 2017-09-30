@@ -105,13 +105,18 @@ class ModelType(type):
         if obj is None:
             return cls
 
-        return ModelType.__new__(
-            ModelType,
-            "&{}".format(cls.__name__),
-            (cls,),
-            {
-                '_rtol_parent': obj
-            })
+        cache_attr = '_rtol_child_class_{}'.format(cls.__name__)
+        if not hasattr(obj, cache_attr):
+            setattr(obj, cache_attr,
+                    ModelType.__new__(
+                        ModelType,
+                        "&{}".format(cls.__name__),
+                        (cls,),
+                        {
+                            '_rtol_parent': obj
+                        })
+                    )
+        return getattr(obj, cache_attr)
 
 
 class Model(metaclass=ModelType):
