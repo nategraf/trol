@@ -1,5 +1,7 @@
 from functools import wraps
-from rtol import Property
+from rtol import Property, Collection
+import weakref
+
 """Provides the Model and ModelType classes, which are the basic blocks of rtol
 
 The Model class is what rtol data models derive from.
@@ -58,6 +60,7 @@ Example:
 
 """
 
+_live_model_set = weakref.WeakSet()
 
 class ModelType(type):
     """A metaclass which provides hiearchy awareness and a list of rtol properties
@@ -67,7 +70,7 @@ class ModelType(type):
     Each time an instance is created, the Models which it contain are subclassed and replaced for that instance
 
     Exmaple:
-        >>> Brewery.Beer._rtol_parent is None
+        >>> Brewery.Beer._rtol_parent is Brewery
         True
         >>> fremont = Brewery('Fremont Brewing')
         >>> fremont.Employee._rtol_parent is fremont
@@ -86,18 +89,29 @@ class ModelType(type):
     """
     def __init__(cls, *args, **kwargs):
         cls._rtol_properties = dict()
+        cls._rtol_collections = dict()
         cls._rtol_child_classes = dict()
         cls._rtol_parent = None
+        cls._rtol_model_name = None
 
         for attrname, attr in cls.__dict__.items():
             if isinstance(attr, Property):
                 cls._rtol_properties[attrname] = attr
 
-                if attr.name is None:
-                    attr.name = attrname
+                if attr._name is None:
+                    attr._name = attrname
 
-            if type(attr) is ModelType:
+            if isinstance(attr, Collection):
+                cls._rtol_collections[attrname] = attr
+
+                if attr._name is None:
+                    attr._name = attrname
+
+            if isinstance(attr, ModelType):
                 cls._rtol_child_classes[attrname] = attr
+                attr._rtol_parent = cls
+
+        _live_model_set.add(cls)
 
         super().__init__(*args, **kwargs)
 
@@ -107,16 +121,41 @@ class ModelType(type):
 
         cache_attr = '_rtol_child_class_{}'.format(cls.__name__)
         if not hasattr(obj, cache_attr):
-            setattr(obj, cache_attr,
-                    ModelType.__new__(
-                        ModelType,
-                        "&{}".format(cls.__name__),
-                        (cls,),
-                        {
-                            '_rtol_parent': obj
-                        })
-                    )
+            proxycls = ModelType.__new__(
+                ModelType,
+                "&{}".format(cls.__name__),
+                (cls,),
+                {
+                    '_rtol_parent': obj
+                })
+            setattr(obj, cache_attr, proxycls)
+            _live_model_set.add(proxycls)
         return getattr(obj, cache_attr)
+
+    @property
+    def model_name(cls):
+        if cls._rtol_model_name is not None:
+            return cls._rtol_model_name
+        else:
+            return cls.__name__.strip('&')
+
+    @model_name.setter
+    def model_name(cls, name):
+        cls._rtol_model_name = name
+
+    @property
+    def key(cls):
+        if cls._key is not None:
+            return cls._key
+
+        if cls._rtol_parent is not None:
+            return '{}{};'.format(cls._rtol_parent.key, cls.model_name)
+        else:
+            return '{};'.format(cls.model_name)
+
+    @key.setter
+    def key(cls, key):
+        self._key = key
 
 
 class Model(metaclass=ModelType):
@@ -128,7 +167,6 @@ class Model(metaclass=ModelType):
         alwaysfetch (bool): If `True`, property values will be fetched from Redis on every access. Deafault is `False`
             This attribute can be overriden for a single property by setting that properties `alwaysfetch` attribute
     """
-    _model_name = None
     _redis = None
     _key = None
 
@@ -138,6 +176,10 @@ class Model(metaclass=ModelType):
     @property
     def model_name(self):
         """str: The name which will be used to identify this model, and it's insatnces in Redis
+        
+        Model name can only be set at the class level.
+        It is also highly recomemded that you not the model_name exact in the defininition of the class 
+        Doing so will move the key and make any previously set data inaccessible
 
         Example:
             >>> class University(rtol.Model):
@@ -147,20 +189,13 @@ class Model(metaclass=ModelType):
             >>> university = University("tamu")
             >>> university.key
             'University:tamu'
-            >>> university.model_name = "uni"
+            >>> University.model_name = "uni"
             >>> university.key
             'uni:tamu'
 
         """
-        if self._model_name is not None:
-            return self._model_name
-
-        # The '&' is added as a marker that this is a copy of the original class (for debug)
-        return self.__class__.__name__.strip('&')
-
-    @model_name.setter
-    def model_name(self, name):
-        self._model_name = name
+        # The '&' is added as a marker that this is a copy of the original class
+        return self.__class__.model_name
 
     @property
     def key(self):
@@ -194,11 +229,14 @@ class Model(metaclass=ModelType):
         """
         if self._key is not None:
             return self._key
-
-        if self._rtol_parent is not None:
-            return ':'.join((self._rtol_parent.key, self.model_name, self.id))
+        
+        if self.__class__._rtol_parent is not None:
+            if isinstance(self.__class__._rtol_parent, ModelType):
+                return '{}{}:{}'.format(self.__class__._rtol_parent.key, self.model_name, self.id)
+            else:
+                return '{}:{}:{}'.format(self.__class__._rtol_parent.key, self.model_name, self.id)
         else:
-            return ':'.join((self.model_name, self.id))
+            return '{}:{}'.format(self.model_name, self.id)
 
     @key.setter
     def key(self, key):
