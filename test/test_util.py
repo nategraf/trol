@@ -4,7 +4,6 @@ import docker
 from .common import ensure_redis_is_online
 from redis import StrictRedis
 from rtol import Serializer, Deserializer, Model
-from rtol.util import serialize_model, deserialize_model
 
 
 @ddt.ddt
@@ -55,9 +54,11 @@ class C(Model):
 class OfflineUtilTests(unittest.TestCase):
 
     def test_serialize_model(self):
+        s = Serializer(Model)
+        d = Deserializer(Model)
         a = A()
 
-        replicon = deserialize_model(serialize_model(a))
+        replicon = d(s(a))
         self.assertIsInstance(a, A)
         self.assertEquals(a.model_name, replicon.model_name)
 
@@ -69,7 +70,7 @@ class OfflineUtilTests(unittest.TestCase):
 
         b = B()
 
-        replicon = deserialize_model(serialize_model(b))
+        replicon = d(s(b))
 
         self.assertIsInstance(b, B)
         self.assertEquals(b.model_name, replicon.model_name)
@@ -78,7 +79,7 @@ class OfflineUtilTests(unittest.TestCase):
 
         c = C()
 
-        replicon = deserialize_model(serialize_model(c))
+        replicon = d(s(c))
 
         self.assertIsInstance(c, C)
         self.assertEquals(c.model_name, replicon.model_name)

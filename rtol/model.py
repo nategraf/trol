@@ -1,5 +1,5 @@
 from functools import wraps
-from rtol import Property, Collection
+from rtol import Property, Collection, deserializer, serializer
 import weakref
 
 """Provides the Model and ModelType classes, which are the basic blocks of rtol
@@ -199,3 +199,75 @@ class Model(metaclass=ModelType):
 
         if commits:
             self.commit(*commits)
+
+
+_seperator = b'\xfe'
+_indicator = b'\xfc'
+
+@serializer(Model)
+def serialize_model(model):
+    """Serialize a model instance into a key reference
+
+    The model class, id, model_name, and key will be preserved on serialization
+    Any custom attributes of the instance will not
+
+    Args:
+        model (Model): The model to serialize
+
+    Returns:
+        bytes: The key reference
+    """
+    model_id = getattr(model, 'id', None)
+    class_name = model.__class__.__name__.encode('utf-8')
+    model_id = _indicator if model_id is None else str(
+        model_id).encode('utf-8')
+    model_name = _indicator if model._model_name is None else model._model_name.encode(
+        'utf-8')
+    model_key = _indicator if model._key is None else model._key.encode(
+        'utf-8')
+
+    key = (class_name, model_id, model_name, model_key)
+    return _seperator.join(key)
+
+
+class ModelDeserializationError(Exception):
+    def __init___(self, key):
+        self.key = key
+
+    def __str__(self):
+        return "Failed to deserialize '{}' to a Model".format(self.key)
+
+@deserializer(Model)
+def deserialize_model(byts):
+    """Deserialize a key reference into a model instance
+
+    The model class, id, model_name, and key will be set on deserialization
+    Any custom attributes of the instance will not, and __init__ will not be called
+
+    Args:
+        bytes: The key reference
+
+    Returns:
+        model (Model): The deserialized model
+    """
+    try:
+        pieces = byts.split(_seperator)
+
+        key = []
+        for piece in pieces:
+            if piece == _indicator:
+                key.append(None)
+            else:
+                key.append(piece.decode('utf-8'))
+
+        cls = _all_models[key[0]]
+        inst = cls.__new__(cls)
+
+        if key[1] is not None:
+            inst.id = key[1]
+        inst._model_name = key[2]
+        inst._key = key[3]
+        return inst
+
+    except Exception as err:
+        raise ModelDeserializationError(byts) from err

@@ -25,41 +25,11 @@ def serialize_bytes(obj):
     return obj
 
 
-_seperator = b'\xfe'
-_indicator = b'\xfc'
-
-
-def serialize_model(model):
-    """Serialize a model instance into a key reference
-
-    The model class, id, model_name, and key will be preserved on serialization
-    Any custom attributes of the instance will not
-
-    Args:
-        model (Model): The model to serialize
-
-    Returns:
-        bytes: The key reference
-    """
-    model_id = getattr(model, 'id', None)
-    class_name = model.__class__.__name__.encode('utf-8')
-    model_id = _indicator if model_id is None else str(
-        model_id).encode('utf-8')
-    model_name = _indicator if model._model_name is None else model._model_name.encode(
-        'utf-8')
-    model_key = _indicator if model._key is None else model._key.encode(
-        'utf-8')
-
-    key = (class_name, model_id, model_name, model_key)
-    return _seperator.join(key)
-
-
 serializers = {
     str: serialize_str,
     int: serialize_int,
     float: serialize_float,
     bytes: serialize_bytes,
-    # Model: serialize_model
 }
 """ dict[type, Callable[[object], bytes]]: A dictionary of serializers known rtol classes
 
@@ -71,17 +41,17 @@ Additonal entries can be added to support new serializable types
 ...     def __init__(self, howhot):
 ...         self.howhot = howhot
 ...
->>> def hotnew_serializer(hnc):
+>>> @rtol.serializer(HotNewClass)
+... def hotnew_serializer(hnc):
 ...     print("HNC IS BEING SERIALIZED!")
 ...     return '<HOT>{}'.format(hnc.howhot)
 ...
->>> rtol.serializers[HotNewClass] = hotnew_serializer
->>> def hotnew_deserializer(byts):
+>>> @rtol.deserializer(HotNewClass)
+... def hotnew_deserializer(byts):
 ...     print("RETURN OF THE HNC!")
 ...     howhot = int(byts.decode('utf-8').strip('<HOT>'))
 ...     return HotNewClass(howhot)
 ...
->>> rtol.deserializers[HotNewClass] = hotnew_deserializer
 >>> class SweetModel(rtol.Model):
 ...     def __init__(self, ident, redis):
 ...         self.id = ident
@@ -102,6 +72,12 @@ RETURN OF THE HNC!
 
 """
 
+def serializer(cls):
+    """A convinience decorator to register a serializer"""
+    def decorator(f):
+        serializers[cls] = f
+        return f
+    return decorator
 
 class Serializer:
     """A class containing the provided serialize functions for selected type
@@ -152,62 +128,24 @@ def deserialize_float(byts):
 def deserialize_bytes(byts):
     return byts
 
-
-class ModelDeserializationError(Exception):
-    def __init___(self, key):
-        self.key = key
-
-    def __str__(self):
-        return "Failed to deserialize '{}' to a Model".format(self.key)
-
-
-def deserialize_model(byts):
-    """Deserialize a key reference into a model instance
-
-    The model class, id, model_name, and key will be set on deserialization
-    Any custom attributes of the instance will not, and __init__ will not be called
-
-    Args:
-        bytes: The key reference
-
-    Returns:
-        model (Model): The deserialized model
-    """
-    try:
-        pieces = byts.split(_seperator)
-
-        key = []
-        for piece in pieces:
-            if piece == _indicator:
-                key.append(None)
-            else:
-                key.append(piece.decode('utf-8'))
-
-        cls = rtol.model._all_models[key[0]]
-        inst = cls.__new__(cls)
-
-        if key[1] is not None:
-            inst.id = key[1]
-        inst._model_name = key[2]
-        inst._key = key[3]
-        return inst
-
-    except Exception as err:
-        raise ModelDeserializationError(byts) from err
-
-
 deserializers = {
     str: deserialize_str,
     int: deserialize_int,
     float: deserialize_float,
     bytes: deserialize_bytes,
-    # Model: deserialize_model
 }
 """ dict[type, Callable[[bytes], object]]: A dictionary of deserializers known rtol classes
 
 Additonal entries can be added to support new deserializable types
 There should be an entry here for each one in serializers
 """
+
+def deserializer(cls):
+    """A convinience decorator to register a deserializer"""
+    def decorator(f):
+        deserializers[cls] = f
+        return f
+    return decorator
 
 
 class Deserializer:
