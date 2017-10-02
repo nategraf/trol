@@ -6,54 +6,30 @@ from rtol import Model, ModelType, Property
 
 
 class Alpha(Model):
-    class Bravo(Model):
-        class Charlie(Model):
-            pass
-
-    class Delta(Model):
-        pass
-
+    pass
 
 class OfflineModelTests(unittest.TestCase):
 
     def test_key_retrieval(self):
         a = Alpha()
-        b = a.Bravo()
-        c = b.Charlie()
 
         with self.assertRaises(AttributeError):
-            c.key
-
-        c.id = "c"
-
-        with self.assertRaises(AttributeError):
-            c.key
-
-        b.id = "b"
-
-        with self.assertRaises(AttributeError):
-            c.key
+            a.key
 
         a.id = "a"
-
-        self.assertEquals(c.key, "Alpha:a:Bravo:b:Charlie:c")
-        self.assertEquals(b.key, "Alpha:a:Bravo:b")
         self.assertEquals(a.key, "Alpha:a")
+        
+        a.model_name = "FOO"
+        self.assertEquals(a.key, "FOO:a")
 
     def test_redis_retrieval(self):
         a = Alpha()
-        b = a.Bravo()
-        c = b.Charlie()
-        self.assertIsNone(c.redis)
+
+        self.assertIsNone(a.redis)
 
         canary = object()
         a.redis = canary
-        self.assertIs(c.redis, canary)
-
-        swallow = object()
-        b.redis = swallow
-        self.assertIs(c.redis, swallow)
-
+        self.assertIs(a.redis, canary)
 
 class X(Model):
     def __init__(self, id):

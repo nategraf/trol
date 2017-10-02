@@ -23,9 +23,6 @@ def serialize_float(obj):
 def serialize_bytes(obj):
     return obj
 
-_model_cache = weakref.WeakValueDictionary()
-_cls_splitter = b'\xfc'
-_inst_splitter = b'\xfe'
 def serialize_model(model):
     """Serialize a model instance into a key reference
 
@@ -35,32 +32,7 @@ def serialize_model(model):
     Returns:
         bytes: The key reference
     """
-    # Walk the madel tree to assemble the ref
-    # The resulting key will be a tuple of structure (class, id, class, id, ...)
-    key = []
-    curr = model
-    untethered = False
-    while curr is not None:
-        key = [curr.model_name, curr.id] + key
-        curr = curr.__class__._rtol_parent
-
-        if isinstance(curr, rtol.ModelType):
-            untethered = True
-            clskey = []
-            while curr is not None:
-                clskey = [curr.model_name] + clskey
-                curr = curr._rtol_parent
-            key.insert(0, tuple(clskey))
-
-    key = tuple(key)
-    
-    # To make deserialization of this model easier
-    _model_cache[key[0:-1]] = model.__class__
-
-    if untethered:
-        serial = _cls_splitter.join([str(k).encode('utf-8') for k in key[0]]) + _cls_splitter
-        return serial + _inst_splitter.join([str(k).encode('utf-8') for k in key[1:]])
-    return _inst_splitter.join([str(k).encode('utf-8') for k in key])
+    raise NotImplementedError()
 
 
 serializers = {
@@ -181,56 +153,7 @@ class ModelDeserializationError(Exception):
         return "Failed to deserialize '{}' to a Model".format(self.key)
 
 def deserialize_model(byts):
-    key = _break_key(byts)
-    
-    def dereference_class_key
-
-    def dereference_key(key):
-        if not key:
-            # Empty key. no way to resolve this one
-            return None
-
-        try:
-            # Best case: This Model was serialized locally and cached
-            cls = _model_cache[key[0:-1]]
-        except KeyError:
-            if len(key) > 2:
-                parent = dereference_key(key[0:-2])
-                if parent is not None:
-                    # We found a parent. Now look for a child with the right name
-                    for cls in parent._rtol_child_classes:
-                        if cls.model_name == key[-2]:
-                            break
-                        else:
-                            # We couldn't walk down the tree. Resolution failed
-                            return None
-                else:
-                    # The parent could not be found. Must have failed for one of the other reasons
-                    return None
-
-            elif len(key) == 2:
-                # This is the last segment. Hopefully it's a model root and we can walk the tree
-                for cls in rtol.model._model_roots:
-                    if cls.model_name == key[-2]:
-                        break
-                    else:
-                        # This model name was not found in the roots. Possibly a custom key or model we don't have
-                        return None
-            else:
-                # This key has an odd number of parts. Must be malformed
-                return None
-
-        _model_cache[key[0:-1]] = cls
-
-        inst = cls.__new__(cls)
-        inst.id = key[-1]
-        return inst
-
-    inst = dereference_key(key)
-    if inst is None:
-        raise ModelDeserializationError(key)
-
-    return inst
+    raise NotImplementedError()
 
 
 deserializers = {

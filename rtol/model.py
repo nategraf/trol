@@ -8,99 +8,21 @@ The Model class is what rtol data models derive from.
 The examples in these docs will use the following data model
 
 Example:
-    >>> import rtol
-    >>> import uuid
-    >>> import redis
-    >>>
-    >>> class Brewery(rtol.Model):
-    ...     def __init__(self, name, location=None):
-    ...         self.name = name
-    ...         self.location = location
-    ...
-    ...     redis = redis.StrictRedis('localhost')
-    ...     name = rtol.Property()
-    ...     location = rtol.Property()
-    ...
-    ...     @property
-    ...     def id(self):
-    ...         return self.name
-    ...
-    ...     class Employee(rtol.Model):
-    ...         def __init__(self, firstname, lastname):
-    ...             self.update(
-    ...                 first_name = firstname,
-    ...                 last_name = lastname
-    ...             )
-    ...
-    ...         first_name = rtol.Property()
-    ...         last_name = rtol.Property()
-    ...         # Add a schedule list here when it is ready
-    ...
-    ...         @property
-    ...         def id(self):
-    ...             return "{} {}".format(self.first_name, self.last_name)
-    ...
-    ...         class Schedule(rtol.Model):
-    ...             def __init__(self):
-    ...                 self.id = uuid.uuid4()
-    ...
-    ...             date = rtol.Property()
-    ...             time_start = rtol.Property()
-    ...             time_end = rtol.Property()
-    ...
-    ...     class Beer(rtol.Model):
-    ...         def __init__(self, shorthand, name):
-    ...             self.id = shorthand
-    ...             self.name = name
-    ...
-    ...         name = rtol.Property()
-    ...         ingredients = rtol.Property()
-    ...         price = rtol.Property()
-    ...
+    TODO: Write a new example
 
 """
 
-_model_roots = weakref.WeakSet()
-"""A weak reference set to every distinct root of the model forest"""
-
 class ModelType(type):
-    """A metaclass which provides hiearchy awareness and a list of rtol properties
+    """A metaclass which provides awareness of properties and collections
 
-    To achieve the desired model structure, rtol models need to aware of the model whichs hold them, if one exists
-    This is not a feature normally in python, so this type is what facilitates runtime awareness of class hiearchy
-    Each time an instance is created, the Models which it contain are subclassed and replaced for that instance
-
-    Exmaple:
-        >>> Brewery.Beer._rtol_parent is Brewery
-        True
-        >>> fremont = Brewery('Fremont Brewing')
-        >>> fremont.Employee._rtol_parent is fremont
-        True
-        >>> fremont.Employee is not Brewery.Employee
-        True
-        >>> issubclass(fremont.Employee, Brewery.Employee)
-        True
-        >>> alex = fremont.Employee("Alex", "Montreal")
-        >>> alex.Schedule._rtol_parent is alex
-        True
-        >>> alex._rtol_parent._rtol_parent is None
-        True
-
-    This type also embeds a dict of rtol.Property which it holder and stores it as _rtol_properties and sets the names if None
+    This type embeds a dict of :obj:`Property` which tracks any properties assigned at class load. 
+    It assigns the names of properties who are unamed
+    This type embeds a dict of :obj:`Collection` which tracks any collections assigned at class load
+    It will assign the names to any collections which did not have their names assigned
     """
     def __init__(cls, *args, **kwargs):
         cls._rtol_properties = dict()
         cls._rtol_collections = dict()
-        cls._rtol_child_classes = dict()
-        cls._rtol_parent = None
-
-        # Start with assumption that this class is the root of it's tree
-        # If this is incorrect, this class's parent will remove it
-        _model_roots.add(cls)
-
-        # We use the "in __dict__" approach to allow inherited classes to default to their class name
-        if not 'model_name' in cls.__dict__:
-            cls.model_name = cls.__name__
 
         for attrname, attr in cls.__dict__.items():
             if isinstance(attr, Property):
@@ -115,28 +37,7 @@ class ModelType(type):
                 if attr._name is None:
                     attr._name = attrname
 
-            if isinstance(attr, ModelType):
-                cls._rtol_child_classes[attrname] = attr
-                attr._rtol_parent = cls
-                _model_roots.remove(attr)
-
         super().__init__(*args, **kwargs)
-
-    def __get__(cls, obj, typ):
-        if obj is None:
-            return cls
-
-        cache_attr = '_rtol_child_class_{}'.format(cls.__name__)
-        if not hasattr(obj, cache_attr):
-            proxycls = ModelType.__new__(
-                ModelType,
-                "&{}".format(cls.__name__),
-                (cls,),
-                {
-                    '_rtol_parent': obj,
-                })
-            setattr(obj, cache_attr, proxycls)
-        return getattr(obj, cache_attr)
 
 
 class Model(metaclass=ModelType):
@@ -150,6 +51,7 @@ class Model(metaclass=ModelType):
     """
     _redis = None
     _key = None
+    _model_name = None
 
     autocommit = True
     alwaysfetch = False
@@ -158,67 +60,56 @@ class Model(metaclass=ModelType):
     def key(self):
         """str: Redis key which prefixes any properties stored under this Model instance
 
-        This key is generated recursively walking up the model tree until the root is reached
+        By default this is {model_name}:{id}
+
+        Changing the key of an instance may cause data to be lost.
+        It's best to think of these models as a pointer and changing the keys is changing the value of the pointer
 
         Example:
-            >>> class Host(rtol.Model):
-            ...     def __init__(self, ip):
-            ...         self.id = ip
-            ...
-            ...     class Service(rtol.Model):
-            ...         def __init__(self, protocol, port):
-            ...             self.id = '{}/{}'.format(protocol, port)
-            ...
-            ...         class Resource(rtol.Model):
-            ...             def __init__(self, path):
-            ...                 self.id = path
-            ...
-            >>> host = Host('192.30.253.167')
-            >>> host.key
-            'Host:192.30.253.167'
-            >>> serv = host.Service('tcp', 22)
-            >>> serv.key
-            'Host:192.30.253.167:Service:tcp/22'
-            >>> res = serv.Resource('nategraf/RedisThinObjectLayer')
-            >>> res.key
-            'Host:192.30.253.167:Service:tcp/22:Resource:nategraf/RedisThinObjectLayer'
-            >>> res2 = Host.Service.Resource('unknown')
-            >>> res2.key
-            'Host;Service;Resource:unknown'
+            TODO: Write a new example
 
         """
         if self._key is not None:
             return self._key
+
+        return ':'.join((self.model_name, self.id))
         
-        if self.__class__._rtol_parent is not None:
-            if isinstance(self.__class__._rtol_parent, ModelType):
-                parent_key = ''
-                curr = self.__class__._rtol_parent
-                while curr is not None:
-                    parent_key = '{};{}'.format(curr.model_name, parent_key)
-                    curr = curr._rtol_parent
-                return '{}{}:{}'.format(parent_key, self.model_name, self.id)
-            else:
-                return '{}:{}:{}'.format(self._rtol_parent.key, self.model_name, self.id)
-        else:
-            return '{}:{}'.format(self.model_name, self.id)
 
     @key.setter
     def key(self, key):
         self._key = key
 
     @property
-    def redis(self):
-        """StrictRedis: The active Redis connection for this model
+    def model_name(self):
+        """str: A name for this model which, in addition to its id which identify it in Redis
 
-        This model will walk up the model tree and use the first connection it encounters
+        By default this is the class name
+
+        Example:
+            TODO: Write a new example
+
+        """
+        if self._model_name is not None:
+            return self._model_name
+
+        return self.__class__.__name__
+        
+    @model_name.setter
+    def model_name(self, name):
+        self._model_name = name
+
+    @property
+    def redis(self):
+        """Redis: The active Redis connection for this model
+
+        This model can have it's own Redis connection of use connection of the :obj:`Database` that holds it
         """
         if self._redis is not None:
             return self._redis
 
         # Use try/except rather than if/else for this block because it should succeed if models are correct
         try:
-            return self._rtol_parent.redis
+            return self._rtol_database.redis
         except AttributeError:
             return None
 
