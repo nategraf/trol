@@ -4,7 +4,7 @@ import docker
 from .common import ensure_redis_is_online
 from redis import StrictRedis
 from rtol import Serializer, Deserializer, Model
-from rtol.util import serialize_model, deserialize_model, _break_key
+from rtol.util import serialize_model, deserialize_model
 
 
 @ddt.ddt
@@ -37,12 +37,51 @@ class OnlineUtilTests(unittest.TestCase):
 
 
 class A(Model):
-    id = 'x'
+    pass
 
-class D(Model):
-    id = 'w'
-    model_name = 'BAR'
+
+class B(Model):
+    def __init__(self):
+        self.model_name = 'BAR'
+        self.id = 'x'
+
+
+class C(Model):
+    def __init__(self):
+        self.key = 'foobar'
+
 
 @ddt.ddt
 class OfflineUtilTests(unittest.TestCase):
-    pass
+
+    def test_serialize_model(self):
+        a = A()
+
+        replicon = deserialize_model(serialize_model(a))
+        self.assertIsInstance(a, A)
+        self.assertEquals(a.model_name, replicon.model_name)
+
+        with self.assertRaises(AttributeError):
+            a.id
+
+        with self.assertRaises(AttributeError):
+            a.key
+
+        b = B()
+
+        replicon = deserialize_model(serialize_model(b))
+
+        self.assertIsInstance(b, B)
+        self.assertEquals(b.model_name, replicon.model_name)
+        self.assertEquals(b.id, replicon.id)
+        self.assertEquals(b.key, replicon.key)
+
+        c = C()
+
+        replicon = deserialize_model(serialize_model(c))
+
+        self.assertIsInstance(c, C)
+        self.assertEquals(c.model_name, replicon.model_name)
+        with self.assertRaises(AttributeError):
+            a.id
+        self.assertEquals(c.key, replicon.key)

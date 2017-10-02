@@ -12,10 +12,13 @@ Example:
 
 """
 
+_all_models = weakref.WeakValueDictionary()
+
+
 class ModelType(type):
     """A metaclass which provides awareness of properties and collections
 
-    This type embeds a dict of :obj:`Property` which tracks any properties assigned at class load. 
+    This type embeds a dict of :obj:`Property` which tracks any properties assigned at class load.
     It assigns the names of properties who are unamed
     This type embeds a dict of :obj:`Collection` which tracks any collections assigned at class load
     It will assign the names to any collections which did not have their names assigned
@@ -36,6 +39,8 @@ class ModelType(type):
 
                 if attr._name is None:
                     attr._name = attrname
+
+        _all_models[cls.__name__] = cls
 
         super().__init__(*args, **kwargs)
 
@@ -73,7 +78,6 @@ class Model(metaclass=ModelType):
             return self._key
 
         return ':'.join((self.model_name, self.id))
-        
 
     @key.setter
     def key(self, key):
@@ -93,7 +97,7 @@ class Model(metaclass=ModelType):
             return self._model_name
 
         return self.__class__.__name__
-        
+
     @model_name.setter
     def model_name(self, name):
         self._model_name = name

@@ -8,6 +8,7 @@ import rtol
 
 # redis-py did this for me already, no need to reinvent the wheel :P
 
+
 def serialize_str(obj):
     return obj
 
@@ -23,8 +24,16 @@ def serialize_float(obj):
 def serialize_bytes(obj):
     return obj
 
+
+_seperator = b'\xfe'
+_indicator = b'\xfc'
+
+
 def serialize_model(model):
     """Serialize a model instance into a key reference
+
+    The model class, id, model_name, and key will be preserved on serialization
+    Any custom attributes of the instance will not
 
     Args:
         model (Model): The model to serialize
@@ -32,7 +41,17 @@ def serialize_model(model):
     Returns:
         bytes: The key reference
     """
-    raise NotImplementedError()
+    model_id = getattr(model, 'id', None)
+    class_name = model.__class__.__name__.encode('utf-8')
+    model_id = _indicator if model_id is None else str(
+        model_id).encode('utf-8')
+    model_name = _indicator if model._model_name is None else model._model_name.encode(
+        'utf-8')
+    model_key = _indicator if model._key is None else model._key.encode(
+        'utf-8')
+
+    key = (class_name, model_id, model_name, model_key)
+    return _seperator.join(key)
 
 
 serializers = {
@@ -40,7 +59,7 @@ serializers = {
     int: serialize_int,
     float: serialize_float,
     bytes: serialize_bytes,
-    #Model: serialize_model
+    # Model: serialize_model
 }
 """ dict[type, Callable[[object], bytes]]: A dictionary of serializers known rtol classes
 
@@ -133,17 +152,6 @@ def deserialize_float(byts):
 def deserialize_bytes(byts):
     return byts
 
-def _break_key(byts):
-    broken = byts.split(_inst_splitter)
-    clspart = None
-    if broken:
-        if _cls_splitter in broken[0]:
-            clspart = tuple(piece.decode('utf-8') for piece in broken.pop(0).split(_cls_splitter))
-
-    key = [piece.decode('utf-8') for piece in broken]
-    if clspart:
-        key.insert(0, clspart)
-    return tuple(key)
 
 class ModelDeserializationError(Exception):
     def __init___(self, key):
@@ -152,8 +160,40 @@ class ModelDeserializationError(Exception):
     def __str__(self):
         return "Failed to deserialize '{}' to a Model".format(self.key)
 
+
 def deserialize_model(byts):
-    raise NotImplementedError()
+    """Deserialize a key reference into a model instance
+
+    The model class, id, model_name, and key will be set on deserialization
+    Any custom attributes of the instance will not, and __init__ will not be called
+
+    Args:
+        bytes: The key reference
+
+    Returns:
+        model (Model): The deserialized model
+    """
+    try:
+        pieces = byts.split(_seperator)
+
+        key = []
+        for piece in pieces:
+            if piece == _indicator:
+                key.append(None)
+            else:
+                key.append(piece.decode('utf-8'))
+
+        cls = rtol.model._all_models[key[0]]
+        inst = cls.__new__(cls)
+
+        if key[1] is not None:
+            inst.id = key[1]
+        inst._model_name = key[2]
+        inst._key = key[3]
+        return inst
+
+    except Exception as err:
+        raise ModelDeserializationError(byts) from err
 
 
 deserializers = {
@@ -161,7 +201,7 @@ deserializers = {
     int: deserialize_int,
     float: deserialize_float,
     bytes: deserialize_bytes,
-    #Model: deserialize_model
+    # Model: deserialize_model
 }
 """ dict[type, Callable[[bytes], object]]: A dictionary of deserializers known rtol classes
 

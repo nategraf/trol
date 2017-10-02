@@ -8,6 +8,7 @@ from rtol import Model, ModelType, Property
 class Alpha(Model):
     pass
 
+
 class OfflineModelTests(unittest.TestCase):
 
     def test_key_retrieval(self):
@@ -18,7 +19,7 @@ class OfflineModelTests(unittest.TestCase):
 
         a.id = "a"
         self.assertEquals(a.key, "Alpha:a")
-        
+
         a.model_name = "FOO"
         self.assertEquals(a.key, "FOO:a")
 
@@ -30,6 +31,7 @@ class OfflineModelTests(unittest.TestCase):
         canary = object()
         a.redis = canary
         self.assertIs(a.redis, canary)
+
 
 class X(Model):
     def __init__(self, id):
