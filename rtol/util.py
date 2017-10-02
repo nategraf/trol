@@ -3,6 +3,8 @@
 This module currently contains the serialize and deserialize methods for the Property and Collection classes I implement
 """
 
+import weakref
+import rtol
 
 # redis-py did this for me already, no need to reinvent the wheel :P
 
@@ -21,12 +23,52 @@ def serialize_float(obj):
 def serialize_bytes(obj):
     return obj
 
+_model_cache = weakref.WeakValueDictionary()
+_cls_splitter = b'\xfc'
+_inst_splitter = b'\xfe'
+def serialize_model(model):
+    """Serialize a model instance into a key reference
+
+    Args:
+        model (Model): The model to serialize
+
+    Returns:
+        bytes: The key reference
+    """
+    # Walk the madel tree to assemble the ref
+    # The resulting key will be a tuple of structure (class, id, class, id, ...)
+    key = []
+    curr = model
+    untethered = False
+    while curr is not None:
+        key = [curr.model_name, curr.id] + key
+        curr = curr.__class__._rtol_parent
+
+        if isinstance(curr, rtol.ModelType):
+            untethered = True
+            clskey = []
+            while curr is not None:
+                clskey = [curr.model_name] + clskey
+                curr = curr._rtol_parent
+            key.insert(0, tuple(clskey))
+
+    key = tuple(key)
+    
+    # To make deserialization of this model easier
+    _model_cache[key[0:-1]] = model.__class__
+
+    if untethered:
+        serial = _cls_splitter.join([str(k).encode('utf-8') for k in key[0]]) + _cls_splitter
+        return serial + _inst_splitter.join([str(k).encode('utf-8') for k in key[1:]])
+    return _inst_splitter.join([str(k).encode('utf-8') for k in key])
+
 
 serializers = {
     str: serialize_str,
     int: serialize_int,
     float: serialize_float,
-    bytes: serialize_bytes
+    bytes: serialize_bytes,
+    #Model: serialize_model
 }
 """ dict[type, Callable[[object], bytes]]: A dictionary of serializers known rtol classes
 
@@ -119,12 +161,84 @@ def deserialize_float(byts):
 def deserialize_bytes(byts):
     return byts
 
+def _break_key(byts):
+    broken = byts.split(_inst_splitter)
+    clspart = None
+    if broken:
+        if _cls_splitter in broken[0]:
+            clspart = tuple(piece.decode('utf-8') for piece in broken.pop(0).split(_cls_splitter))
+
+    key = [piece.decode('utf-8') for piece in broken]
+    if clspart:
+        key.insert(0, clspart)
+    return tuple(key)
+
+class ModelDeserializationError(Exception):
+    def __init___(self, key):
+        self.key = key
+
+    def __str__(self):
+        return "Failed to deserialize '{}' to a Model".format(self.key)
+
+def deserialize_model(byts):
+    key = _break_key(byts)
+    
+    def dereference_class_key
+
+    def dereference_key(key):
+        if not key:
+            # Empty key. no way to resolve this one
+            return None
+
+        try:
+            # Best case: This Model was serialized locally and cached
+            cls = _model_cache[key[0:-1]]
+        except KeyError:
+            if len(key) > 2:
+                parent = dereference_key(key[0:-2])
+                if parent is not None:
+                    # We found a parent. Now look for a child with the right name
+                    for cls in parent._rtol_child_classes:
+                        if cls.model_name == key[-2]:
+                            break
+                        else:
+                            # We couldn't walk down the tree. Resolution failed
+                            return None
+                else:
+                    # The parent could not be found. Must have failed for one of the other reasons
+                    return None
+
+            elif len(key) == 2:
+                # This is the last segment. Hopefully it's a model root and we can walk the tree
+                for cls in rtol.model._model_roots:
+                    if cls.model_name == key[-2]:
+                        break
+                    else:
+                        # This model name was not found in the roots. Possibly a custom key or model we don't have
+                        return None
+            else:
+                # This key has an odd number of parts. Must be malformed
+                return None
+
+        _model_cache[key[0:-1]] = cls
+
+        inst = cls.__new__(cls)
+        inst.id = key[-1]
+        return inst
+
+    inst = dereference_key(key)
+    if inst is None:
+        raise ModelDeserializationError(key)
+
+    return inst
+
 
 deserializers = {
     str: deserialize_str,
     int: deserialize_int,
     float: deserialize_float,
-    bytes: deserialize_bytes
+    bytes: deserialize_bytes,
+    #Model: deserialize_model
 }
 """ dict[type, Callable[[bytes], object]]: A dictionary of deserializers known rtol classes
 

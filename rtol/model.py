@@ -60,7 +60,8 @@ Example:
 
 """
 
-_live_model_set = weakref.WeakSet()
+_model_roots = weakref.WeakSet()
+"""A weak reference set to every distinct root of the model forest"""
 
 class ModelType(type):
     """A metaclass which provides hiearchy awareness and a list of rtol properties
@@ -92,7 +93,14 @@ class ModelType(type):
         cls._rtol_collections = dict()
         cls._rtol_child_classes = dict()
         cls._rtol_parent = None
-        cls._rtol_model_name = None
+
+        # Start with assumption that this class is the root of it's tree
+        # If this is incorrect, this class's parent will remove it
+        _model_roots.add(cls)
+
+        # We use the "in __dict__" approach to allow inherited classes to default to their class name
+        if not 'model_name' in cls.__dict__:
+            cls.model_name = cls.__name__
 
         for attrname, attr in cls.__dict__.items():
             if isinstance(attr, Property):
@@ -110,8 +118,7 @@ class ModelType(type):
             if isinstance(attr, ModelType):
                 cls._rtol_child_classes[attrname] = attr
                 attr._rtol_parent = cls
-
-        _live_model_set.add(cls)
+                _model_roots.remove(attr)
 
         super().__init__(*args, **kwargs)
 
@@ -126,36 +133,10 @@ class ModelType(type):
                 "&{}".format(cls.__name__),
                 (cls,),
                 {
-                    '_rtol_parent': obj
+                    '_rtol_parent': obj,
                 })
             setattr(obj, cache_attr, proxycls)
-            _live_model_set.add(proxycls)
         return getattr(obj, cache_attr)
-
-    @property
-    def model_name(cls):
-        if cls._rtol_model_name is not None:
-            return cls._rtol_model_name
-        else:
-            return cls.__name__.strip('&')
-
-    @model_name.setter
-    def model_name(cls, name):
-        cls._rtol_model_name = name
-
-    @property
-    def key(cls):
-        if cls._key is not None:
-            return cls._key
-
-        if cls._rtol_parent is not None:
-            return '{}{};'.format(cls._rtol_parent.key, cls.model_name)
-        else:
-            return '{};'.format(cls.model_name)
-
-    @key.setter
-    def key(cls, key):
-        self._key = key
 
 
 class Model(metaclass=ModelType):
@@ -172,30 +153,6 @@ class Model(metaclass=ModelType):
 
     autocommit = True
     alwaysfetch = False
-
-    @property
-    def model_name(self):
-        """str: The name which will be used to identify this model, and it's insatnces in Redis
-        
-        Model name can only be set at the class level.
-        It is also highly recomemded that you not the model_name exact in the defininition of the class 
-        Doing so will move the key and make any previously set data inaccessible
-
-        Example:
-            >>> class University(rtol.Model):
-            ...     def __init__(self, name):
-            ...         self.id = name
-            ...
-            >>> university = University("tamu")
-            >>> university.key
-            'University:tamu'
-            >>> University.model_name = "uni"
-            >>> university.key
-            'uni:tamu'
-
-        """
-        # The '&' is added as a marker that this is a copy of the original class
-        return self.__class__.model_name
 
     @property
     def key(self):
@@ -225,6 +182,9 @@ class Model(metaclass=ModelType):
             >>> res = serv.Resource('nategraf/RedisThinObjectLayer')
             >>> res.key
             'Host:192.30.253.167:Service:tcp/22:Resource:nategraf/RedisThinObjectLayer'
+            >>> res2 = Host.Service.Resource('unknown')
+            >>> res2.key
+            'Host;Service;Resource:unknown'
 
         """
         if self._key is not None:
@@ -232,9 +192,14 @@ class Model(metaclass=ModelType):
         
         if self.__class__._rtol_parent is not None:
             if isinstance(self.__class__._rtol_parent, ModelType):
-                return '{}{}:{}'.format(self.__class__._rtol_parent.key, self.model_name, self.id)
+                parent_key = ''
+                curr = self.__class__._rtol_parent
+                while curr is not None:
+                    parent_key = '{};{}'.format(curr.model_name, parent_key)
+                    curr = curr._rtol_parent
+                return '{}{}:{}'.format(parent_key, self.model_name, self.id)
             else:
-                return '{}:{}:{}'.format(self.__class__._rtol_parent.key, self.model_name, self.id)
+                return '{}:{}:{}'.format(self._rtol_parent.key, self.model_name, self.id)
         else:
             return '{}:{}'.format(self.model_name, self.id)
 

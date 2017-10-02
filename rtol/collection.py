@@ -134,7 +134,7 @@ class Collection(object):
 
     @property
     def name(self):
-        """``str``: The name for this set, which will be used to determine the key if bound to a Model
+        """``str``: The name for this collection, which will be used to determine the key if bound to a Model
 
         >>> class Alpha(rtol.Model):
         ...     def __init__(self, ident):

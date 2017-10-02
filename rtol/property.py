@@ -92,6 +92,15 @@ class Property:
         if self.autocommit or (self.autocommit is None and getattr(obj, 'autocommit', True)):
             self.commit(obj)
 
+    @property
+    def name(self):
+        """``str``: The name for this property, which will be used to determine the key when bound to a Model"""
+        return self._name
+
+    @name.setter
+    def name(self, value):
+        self._name = value
+
     def fetch(self, obj):
         """Retrieves and sets the value of this property
 
