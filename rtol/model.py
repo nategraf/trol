@@ -7,9 +7,6 @@ import weakref
 The Model class is what rtol data models derive from.
 The examples in these docs will use the following data model
 
-Example:
-    TODO: Write a new example
-
 """
 
 _all_models = weakref.WeakValueDictionary()
