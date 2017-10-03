@@ -22,6 +22,9 @@ class DatabaseType(type):
                 if attr._name is None:
                     attr._name = attrname
 
+                if attr._redis is None:
+                    attr._redis = getattr(cls, 'redis', None)
+
             if isinstance(attr, ModelType):
                 cls._rtol_models[attrname] = attr
                 attr._rtol_database = cls

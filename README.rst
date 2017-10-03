@@ -37,7 +37,7 @@ How do I use it?
   ...
   ...     @property
   ...     def id(self):
-  ...       return name + '@' + str(batch_number)
+  ...       return self.name + '@' + str(self.batch_number)
   ...
   ...     style = trol.Property()
   ...     rating = trol.Property(typ=int)
@@ -52,5 +52,17 @@ How do I use it?
   >>> universale.style = "American Pale Ale"
   >>> universale.rating = 5
   >>> brewery.beers.add(lush, universale)
+  2
   >>> MyDatabase.favorite_breweries.add(brewery, 10)
-  >>> MyDatabase.redis.keys()
+  1
+  >>> set(MyDatabase.redis.keys()) == {
+  ...   b'favbreweries',
+  ...   b'Brewery:frmt:name',
+  ...   b'Brewery:frmt:location',
+  ...   b'Brewery:frmt:beers',
+  ...   b'Beer:Lush IPA@120:style',
+  ...   b'Beer:Lush IPA@120:rating',
+  ...   b'Beer:Universale@245:style',
+  ...   b'Beer:Universale@245:rating'
+  ... }
+  True
