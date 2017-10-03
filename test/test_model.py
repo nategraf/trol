@@ -2,7 +2,7 @@ import unittest
 import doctest
 from redis import StrictRedis
 from .common import ensure_redis_is_online
-from rtol import Model, ModelType, Property
+from trol import Model, ModelType, Property
 
 
 class Alpha(Model):

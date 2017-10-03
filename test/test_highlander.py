@@ -1,5 +1,5 @@
 import unittest
-from rtol import highlander
+from trol import highlander
 
 
 @highlander()

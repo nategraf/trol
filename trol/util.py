@@ -1,10 +1,10 @@
-"""A set of utility functions for use in multiple parts of rtol
+"""A set of utility functions for use in multiple parts of trol
 
 This module currently contains the serialize and deserialize methods for the Property and Collection classes I implement
 """
 
 import weakref
-import rtol
+import trol
 
 # redis-py did this for me already, no need to reinvent the wheel :P
 
@@ -31,33 +31,33 @@ serializers = {
     float: serialize_float,
     bytes: serialize_bytes,
 }
-""" dict[type, Callable[[object], bytes]]: A dictionary of serializers known rtol classes
+""" dict[type, Callable[[object], bytes]]: A dictionary of serializers known trol classes
 
 Additonal entries can be added to support new serializable types
 
 >>> import redis
->>> import rtol
+>>> import trol
 >>> class HotNewClass:
 ...     def __init__(self, howhot):
 ...         self.howhot = howhot
 ...
->>> @rtol.serializer(HotNewClass)
+>>> @trol.serializer(HotNewClass)
 ... def hotnew_serializer(hnc):
 ...     print("HNC IS BEING SERIALIZED!")
 ...     return '<HOT>{}'.format(hnc.howhot)
 ...
->>> @rtol.deserializer(HotNewClass)
+>>> @trol.deserializer(HotNewClass)
 ... def hotnew_deserializer(byts):
 ...     print("RETURN OF THE HNC!")
 ...     howhot = int(byts.decode('utf-8').strip('<HOT>'))
 ...     return HotNewClass(howhot)
 ...
->>> class SweetModel(rtol.Model):
+>>> class SweetModel(trol.Model):
 ...     def __init__(self, ident, redis):
 ...         self.id = ident
 ...         self.redis = redis
 ...
-...     bar = rtol.Property(typ=HotNewClass)
+...     bar = trol.Property(typ=HotNewClass)
 ...
 >>> r = redis.Redis('localhost')
 >>> sm = SweetModel('xyz', r)
@@ -134,7 +134,7 @@ deserializers = {
     float: deserialize_float,
     bytes: deserialize_bytes,
 }
-""" dict[type, Callable[[bytes], object]]: A dictionary of deserializers known rtol classes
+""" dict[type, Callable[[bytes], object]]: A dictionary of deserializers known trol classes
 
 Additonal entries can be added to support new deserializable types
 There should be an entry here for each one in serializers

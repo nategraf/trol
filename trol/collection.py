@@ -13,7 +13,7 @@ Here are the modifications from the origonal Redisco conatainers:
     * Set copy does not tigger network transfer of set members
     * Functions which require multiple explicitly use the pipeline to avoid multiple network calls
     * Some functions now use a "scratch-pad" in redis to avoid transfering full collections
-    * The ``db`` attribute has been renamed to ``redis`` to match other places in rtol
+    * The ``db`` attribute has been renamed to ``redis`` to match other places in trol
     * There is no default expire time
     * A redis connection must be specified on construction, unless accessed through a Model
     * There is no support for TypedList or NonPersitentList
@@ -21,7 +21,7 @@ Here are the modifications from the origonal Redisco conatainers:
 Unlike properties, collections call out to Redis on every transaction by default
 Caching for collections is a trickier prospect, and therefore is not attempted
 
->>> import rtol
+>>> import trol
 >>> from redis import Redis
 >>> redis = Redis()
 
@@ -30,7 +30,7 @@ Caching for collections is a trickier prospect, and therefore is not attempted
 import threading
 import collections
 import pickle
-from rtol import Serializer, Deserializer
+from trol import Serializer, Deserializer
 
 
 # Use a guid to make sure that no wil define a colliding key by accident
@@ -103,7 +103,7 @@ class Collection(object):
         """
         Remove the collection from the redis storage
 
-        >>> s = rtol.Set('test', redis)
+        >>> s = trol.Set('test', redis)
         >>> s.add('1')
         1
         >>> s.clear()
@@ -118,7 +118,7 @@ class Collection(object):
         """
         Allow the key to expire after ``time`` seconds.
 
-        >>> s = rtol.Set('test', redis)
+        >>> s = trol.Set('test', redis)
         >>> s.add("1")
         1
         >>> s.set_expire(1)
@@ -136,11 +136,11 @@ class Collection(object):
     def name(self):
         """``str``: The name for this collection, which will be used to determine the key if bound to a Model
 
-        >>> class Alpha(rtol.Model):
+        >>> class Alpha(trol.Model):
         ...     def __init__(self, ident):
         ...         self.id = ident
         ...
-        ...     storage = rtol.Set(name="store")
+        ...     storage = trol.Set(name="store")
         ...
         >>> a = Alpha('xyz')
         >>> a.key
@@ -174,7 +174,7 @@ class Collection(object):
 
         Setting this attribute directly to non-None will override ``name`` in determining ``key``
 
-        >>> s = rtol.Set(name='foo')
+        >>> s = trol.Set(name='foo')
         >>> s.key
         'foo'
         >>> s.key = 'bar'
@@ -222,7 +222,7 @@ class Set(Collection):
     def __repr__(self):
         """Gets the string representation of this Set
 
-        >>> s = rtol.Set('test', redis)
+        >>> s = trol.Set('test', redis)
         >>> repr(s)
         "<Set 'test'>"
 
@@ -236,7 +236,7 @@ class Set(Collection):
         :param values: a list of values or a simple value.
         :rtype: integer representing the number of value added to the set.
 
-        >>> s = rtol.Set('test', redis)
+        >>> s = trol.Set('test', redis)
         >>> s.add([1, 2, 3])
         3
         >>> s.add([4])
@@ -256,7 +256,7 @@ class Set(Collection):
         :param values: a list of values or a simple value.
         :rtype: boolean indicating if the values have been removed.
 
-        >>> s = rtol.Set('test', redis)
+        >>> s = trol.Set('test', redis)
         >>> s.add([1, 2, 3])
         3
         >>> s.srem([1, 3])
@@ -273,7 +273,7 @@ class Set(Collection):
 
         :rtype: String representing the value poped.
 
-        >>> s = rtol.Set('test', redis)
+        >>> s = trol.Set('test', redis)
         >>> s.add("a")
         1
         >>> s.spop()
@@ -291,8 +291,8 @@ class Set(Collection):
         :param other: another ``Set``
         :rtype: boolean
 
-        >>> s1 = rtol.Set('key1', redis)
-        >>> s2 = rtol.Set('key2', redis)
+        >>> s1 = trol.Set('key1', redis)
+        >>> s2 = trol.Set('key2', redis)
         >>> s1.add(['a', 'b', 'c'])
         3
         >>> s2.add(['c', 'd', 'e'])
@@ -313,8 +313,8 @@ class Set(Collection):
 
         :param other_set: another ``Set`` to compare to.
 
-        >>> s1 = rtol.Set('key1', redis)
-        >>> s2 = rtol.Set('key2', redis)
+        >>> s1 = trol.Set('key1', redis)
+        >>> s2 = trol.Set('key2', redis)
         >>> s1.add(['a', 'b', 'c'])
         3
         >>> s2.add('b')
@@ -335,8 +335,8 @@ class Set(Collection):
     def __lt__(self, other_set):
         """Test whether the set is a true subset of other.
 
-        >>> s1 = rtol.Set('key1', redis)
-        >>> s2 = rtol.Set('key2', redis)
+        >>> s1 = trol.Set('key1', redis)
+        >>> s2 = trol.Set('key2', redis)
         >>> s1.add(['a', 'b'])
         2
         >>> s2.add(['a', 'b'])
@@ -362,8 +362,8 @@ class Set(Collection):
         """
         Test equality of keys first, then members is they are not equal
 
-        >>> s1 = rtol.Set('key1', redis)
-        >>> s2 = rtol.Set('key2', redis)
+        >>> s1 = trol.Set('key1', redis)
+        >>> s2 = trol.Set('key2', redis)
         >>> s1.add(['a', 'b'])
         2
         >>> s2.add(['a', 'b'])
@@ -399,8 +399,8 @@ class Set(Collection):
 
         :param other_set: another ``Set`` to compare to.
 
-        >>> s1 = rtol.Set('key1', redis)
-        >>> s2 = rtol.Set('key2', redis)
+        >>> s1 = trol.Set('key1', redis)
+        >>> s2 = trol.Set('key2', redis)
         >>> s1.add(['a', 'b', 'c'])
         3
         >>> s2.add('b')
@@ -430,8 +430,8 @@ class Set(Collection):
         :param other_sets: list of other ``Set``.
         :rtype: ``Set``
 
-        >>> s1 = rtol.Set('key1', redis)
-        >>> s2 = rtol.Set('key2', redis)
+        >>> s1 = trol.Set('key1', redis)
+        >>> s2 = trol.Set('key2', redis)
         >>> s1.add(['a', 'b', 'c'])
         3
         >>> s2.add(['d', 'e'])
@@ -455,10 +455,10 @@ class Set(Collection):
 
         :param key: String representing the key where to store the result (the union)
         :param other_sets: list of other ``Set``.
-        :rtype: rtol.Set
+        :rtype: trol.Set
 
-        >>> s1 = rtol.Set('key1', redis)
-        >>> s2 = rtol.Set('key2', redis)
+        >>> s1 = trol.Set('key1', redis)
+        >>> s2 = trol.Set('key2', redis)
         >>> s1.add(['a', 'b', 'c'])
         3
         >>> s2.add(['c', 'e'])
@@ -485,8 +485,8 @@ class Set(Collection):
         :param other_sets: list of other ``Set``.
         :rtype: Set
 
-        >>> s1 = rtol.Set('key1', redis)
-        >>> s2 = rtol.Set('key2', redis)
+        >>> s1 = trol.Set('key1', redis)
+        >>> s2 = trol.Set('key2', redis)
         >>> s1.add(['a', 'b', 'c'])
         3
         >>> s2.add(['c', 'e'])
@@ -511,10 +511,10 @@ class Set(Collection):
         :param other_sets: list of ``Set``
         :rtype: None
 
-        >>> s1 = rtol.Set('key1', redis)
+        >>> s1 = trol.Set('key1', redis)
         >>> s1.add(['a', 'b', 'c'])
         3
-        >>> s2 = rtol.Set('key2', redis)
+        >>> s2 = trol.Set('key2', redis)
         >>> s2.add(['b', 'c', 'd'])
         3
         >>> s1.update(s2)
@@ -538,10 +538,10 @@ class Set(Collection):
         :param other_sets: list of ``Set``
         :rtype: None
 
-        >>> s1 = rtol.Set('key1', redis)
+        >>> s1 = trol.Set('key1', redis)
         >>> s1.add(['a', 'b', 'c'])
         3
-        >>> s2 = rtol.Set('key2', redis)
+        >>> s2 = trol.Set('key2', redis)
         >>> s2.add(['b', 'c', 'd'])
         3
         >>> s1.intersection_update(s2)
@@ -565,10 +565,10 @@ class Set(Collection):
         :param other_sets: list of ``Set``
         :rtype: None
 
-        >>> s1 = rtol.Set('key1', redis)
+        >>> s1 = trol.Set('key1', redis)
         >>> s1.add(['a', 'b', 'c'])
         3
-        >>> s2 = rtol.Set('key2', redis)
+        >>> s2 = trol.Set('key2', redis)
         >>> s2.add(['b', 'c', 'd'])
         3
         >>> s1.difference_update(s2)
@@ -600,7 +600,7 @@ class Set(Collection):
         .. WARNING::
             If the new key already contains a value, it will be overwritten.
 
-        >>> s1 = rtol.Set('key1', redis)
+        >>> s1 = trol.Set('key1', redis)
         >>> s1.add(['a', 'b', 'c'])
         3
         >>> s2 = s1.copy('key2')
@@ -618,7 +618,7 @@ class Set(Collection):
     def __iter__(self):
         """Get an iterator for this set
 
-        >>> s = rtol.Set('test', redis)
+        >>> s = trol.Set('test', redis)
         >>> s.add('a', 'b', 'b', 'c')
         3
         >>> for count, letter in enumerate(s):
@@ -664,7 +664,7 @@ class Set(Collection):
         """
         Returns the cardinality of the Set.
 
-        >>> s = rtol.Set('test', redis)
+        >>> s = trol.Set('test', redis)
         >>> s.add(['a', 'b', 'c'])
         3
         >>> s.scard()
@@ -680,7 +680,7 @@ class Set(Collection):
         """
         Return ``True`` if the provided value is in the ``Set``.
 
-        >>> s = rtol.Set('test', redis)
+        >>> s = trol.Set('test', redis)
         >>> s.add(['a', 'b', 'c'])
         3
         >>> s.sismember('d')
@@ -694,7 +694,7 @@ class Set(Collection):
         """
         Return a random member of the set.
 
-        >>> s = rtol.Set('test', redis)
+        >>> s = trol.Set('test', redis)
         >>> s.add(['a', 'b', 'c'])
         3
         >>> s.srandmember() in { 'a', 'b', 'c' }
@@ -755,7 +755,7 @@ class List(Collection):
         :param start: integer representing the start index of the range
         :param stop: integer representing the size of the list.
 
-        >>> l = rtol.List('test', redis)
+        >>> l = trol.List('test', redis)
         >>> l.push(['a', 'b', 'c', 'd'])
         4
         >>> l.lrange(1, 2)
@@ -772,7 +772,7 @@ class List(Collection):
         :param values: a list of values or single value to push
         :rtype: long representing the number of values pushed.
 
-        >>> l = rtol.List('test', redis)
+        >>> l = trol.List('test', redis)
         >>> l.lpush(['a', 'b'])
         2
         >>> l.clear()
@@ -788,7 +788,7 @@ class List(Collection):
         :param values: a list of values or single value to push
         :rtype: long representing the size of the list.
 
-        >>> l = rtol.List('test', redis)
+        >>> l = trol.List('test', redis)
         >>> l.lpush(['a', 'b'])
         2
         >>> l.rpush(['c', 'd'])
@@ -843,12 +843,12 @@ class List(Collection):
         :param key: the key of the list receiving the popped value.
         :return: the popped (and pushed) value
 
-        >>> l = rtol.List('list1', redis)
+        >>> l = trol.List('list1', redis)
         >>> l.push(['a', 'b', 'c'])
         3
         >>> l.rpoplpush('list2')
         'c'
-        >>> l2 = rtol.List('list2', redis)
+        >>> l2 = trol.List('list2', redis)
         >>> l2.members
         ['c']
         >>> l.clear()
@@ -923,7 +923,7 @@ class List(Collection):
 
         :return: True is the operation succeed.
 
-        >>> l = rtol.List('test', redis)
+        >>> l = trol.List('test', redis)
         >>> l.push(['a', 'b', 'c'])
         3
         >>> l.lset(0, 'e')
@@ -938,7 +938,7 @@ class List(Collection):
     def __iter__(self):
         """Get an iterator for this list
 
-        >>> l = rtol.List('test', redis)
+        >>> l = trol.List('test', redis)
         >>> l.lpush('a', 'b', 'c')
         3
         >>> for letter in l:
@@ -954,7 +954,7 @@ class List(Collection):
     def __repr__(self):
         """Get the string representation of this set
 
-        >>> l = rtol.List('test', redis)
+        >>> l = trol.List('test', redis)
         >>> repr(l)
         "<List 'test'>"
 
@@ -1099,7 +1099,7 @@ class SortedSet(Collection):
         :param limit: limit the result to *n* elements
         :param offset: Skip the first *n* elements
 
-        >>> s = rtol.SortedSet('foo', redis)
+        >>> s = trol.SortedSet('foo', redis)
         >>> s.add('a', 10)
         1
         >>> s.add('b', 20)
@@ -1123,7 +1123,7 @@ class SortedSet(Collection):
         :param members: a list of item or a single item
         :param score: the score the assign to the item(s)
 
-        >>> s = rtol.SortedSet('foo', redis)
+        >>> s = trol.SortedSet('foo', redis)
         >>> s.add('a')
         1
         >>> s.zscore('a')
@@ -1153,7 +1153,7 @@ class SortedSet(Collection):
         :return: True if **at least one** value is successfully
                  removed, False otherwise
 
-        >>> s = rtol.SortedSet('foo', redis)
+        >>> s = trol.SortedSet('foo', redis)
         >>> s.add('a', 10)
         1
         >>> s.zrem('a')
@@ -1174,7 +1174,7 @@ class SortedSet(Collection):
         :param value: the value to add to the current score
         :returns: the new score of the member
 
-        >>> s = rtol.SortedSet('foo', redis)
+        >>> s = trol.SortedSet('foo', redis)
         >>> s.add('a', 10)
         1
         >>> s.zincrby('a', 10)
@@ -1188,7 +1188,7 @@ class SortedSet(Collection):
         """
         Returns the ranking in reverse order for the member
 
-        >>> s = rtol.SortedSet('foo', redis)
+        >>> s = trol.SortedSet('foo', redis)
         >>> s.add('a', 10)
         1
         >>> s.add('b', 20)
@@ -1208,7 +1208,7 @@ class SortedSet(Collection):
         :param withscore: True if the score of the elements should
                           also be returned
 
-        >>> s = rtol.SortedSet('foo', redis)
+        >>> s = trol.SortedSet('foo', redis)
         >>> s.add('a', 10)
         1
         >>> s.add('b', 20)
@@ -1232,7 +1232,7 @@ class SortedSet(Collection):
         Returns the range of items included between ``start`` and ``stop``
         in reverse order (from high to low)
 
-        >>> s = rtol.SortedSet('foo', redis)
+        >>> s = trol.SortedSet('foo', redis)
         >>> s.add('a', 10)
         1
         >>> s.add('b', 20)
@@ -1250,7 +1250,7 @@ class SortedSet(Collection):
         """
         Returns the range of elements included between the scores (min and max)
 
-        >>> s = rtol.SortedSet('foo', redis)
+        >>> s = trol.SortedSet('foo', redis)
         >>> s.add('a', 10)
         1
         >>> s.add('b', 20)
@@ -1268,7 +1268,7 @@ class SortedSet(Collection):
         """
         Returns the range of elements included between the scores (min and max)
 
-        >>> s = rtol.SortedSet('foo', redis)
+        >>> s = trol.SortedSet('foo', redis)
         >>> s.add('a', 10)
         1
         >>> s.add('b', 20)
@@ -1286,7 +1286,7 @@ class SortedSet(Collection):
         """
         Returns the cardinality of the SortedSet.
 
-        >>> s = rtol.SortedSet('foo', redis)
+        >>> s = trol.SortedSet('foo', redis)
         >>> s.add("a", 1)
         1
         >>> s.add("b", 2)
@@ -1304,7 +1304,7 @@ class SortedSet(Collection):
         """
         Return the score of an element
 
-        >>> s = rtol.SortedSet('foo', redis)
+        >>> s = trol.SortedSet('foo', redis)
         >>> s.add("a", 10)
         1
         >>> s.score("a")
@@ -1321,7 +1321,7 @@ class SortedSet(Collection):
 
         :return: the number of item deleted
 
-        >>> s = rtol.SortedSet('foo', redis)
+        >>> s = trol.SortedSet('foo', redis)
         >>> s.add("a", 10)
         1
         >>> s.add("b", 20)
@@ -1344,7 +1344,7 @@ class SortedSet(Collection):
 
         :returns: the number of items deleted.
 
-        >>> s = rtol.SortedSet('foo', redis)
+        >>> s = trol.SortedSet('foo', redis)
         >>> s.add("a", 10)
         1
         >>> s.add("b", 20)
@@ -1365,7 +1365,7 @@ class SortedSet(Collection):
         """
         Returns the rank of the element.
 
-        >>> s = rtol.SortedSet('foo', redis)
+        >>> s = trol.SortedSet('foo', redis)
         >>> s.add({"a": 30, 'b':20, 'c':10})
         3
         >>> s.zrank("a")
@@ -1398,7 +1398,7 @@ class Hash(Collection, collections.MutableMapping):
     def __repr__(self):
         """Gets the string representation of this object
 
-        >>> h = rtol.Hash('test', redis)
+        >>> h = trol.Hash('test', redis)
         >>> repr(h)
         "<Hash 'test'>"
 
@@ -1422,7 +1422,7 @@ class Hash(Collection, collections.MutableMapping):
                   stored, 0 if the field existed and the value has been
                   updated.
 
-        >>> h = rtol.Hash('foo', redis)
+        >>> h = trol.Hash('foo', redis)
         >>> h.hset("bar", "value")
         1
         >>> h.clear()
@@ -1437,7 +1437,7 @@ class Hash(Collection, collections.MutableMapping):
         :param hkeys: on or more fields to remove.
         :return: the number of fields that were removed
 
-        >>> h = rtol.Hash('foo', redis)
+        >>> h = trol.Hash('foo', redis)
         >>> h.hset("bar", "value")
         1
         >>> h.hdel("bar")
@@ -1486,7 +1486,7 @@ class Hash(Collection, collections.MutableMapping):
         Increment the value of the field.
         :returns: the value of the field after incrementation
 
-        >>> h = rtol.Hash('foo', redis)
+        >>> h = trol.Hash('foo', redis)
         >>> h.hincrby("bar", 10)
         10
         >>> h.hincrby("bar", 2)

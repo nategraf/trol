@@ -1,4 +1,4 @@
-from rtol import ModelType, Collection, Property 
+from trol import ModelType, Collection, Property 
 
 class DatabaseType(type):
     def __init__(cls, *args, **kwargs):

@@ -21,7 +21,7 @@ def ensure_redis_is_online():
     with lock:
         if holder_ref is None or holder_ref() is None:
             holder = ContainerToken(
-                image="redis:latest", name='rtol-test-redis', network_mode='host', detach=True)
+                image="redis:latest", name='trol-test-redis', network_mode='host', detach=True)
             holder_ref = weakref.ref(holder)
         else:
             holder = holder_ref()

@@ -3,7 +3,7 @@ import ddt
 import docker
 from .common import ensure_redis_is_online
 from redis import StrictRedis
-from rtol import Serializer, Deserializer, Model
+from trol import Serializer, Deserializer, Model
 
 
 @ddt.ddt

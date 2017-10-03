@@ -1,5 +1,5 @@
 import unittest
-from rtol import Model, Property, Set, Database
+from trol import Model, Property, Set, Database
 
 class TestDatabase(unittest.TestCase):
     def test_init(self):

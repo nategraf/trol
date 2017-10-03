@@ -2,7 +2,7 @@ import docker
 import unittest
 import pickle
 from redis import StrictRedis
-from rtol import Property, RedisKeyError
+from trol import Property, RedisKeyError
 from .common import ensure_redis_is_online
 
 

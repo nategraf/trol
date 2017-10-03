@@ -1,6 +1,6 @@
 import doctest
 import unittest
-import rtol
+import trol
 from redis import Redis
 from .common import ensure_redis_is_online
 
@@ -18,5 +18,5 @@ def setUp(dtest):
 
 def load_tests(loader, tests, ignore):
     tests.addTests(doctest.DocFileSuite(
-        'model.py', 'collection.py', 'util.py', package=rtol, setUp=setUp))
+        'model.py', 'collection.py', 'util.py', package=trol, setUp=setUp))
     return tests

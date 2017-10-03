@@ -1,5 +1,5 @@
 import pickle
-from rtol import RedisKeyError, Serializer, Deserializer
+from trol import RedisKeyError, Serializer, Deserializer
 
 
 class Property:
@@ -9,7 +9,7 @@ class Property:
     The class it is embedded in should define `redis` and `key` attrbutes to define where this property is stored
 
     Note:
-        This class is intended to be used with rtol.Model subclasses, but can work on it's own
+        This class is intended to be used with trol.Model subclasses, but can work on it's own
 
     Args:
         autocommit (bool): Commit the local value to Redis on every assignment

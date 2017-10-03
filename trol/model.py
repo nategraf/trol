@@ -1,10 +1,10 @@
 from functools import wraps
-from rtol import Property, Collection, deserializer, serializer
+from trol import Property, Collection, deserializer, serializer
 import weakref
 
-"""Provides the Model and ModelType classes, which are the basic blocks of rtol
+"""Provides the Model and ModelType classes, which are the basic blocks of trol
 
-The Model class is what rtol data models derive from.
+The Model class is what trol data models derive from.
 The examples in these docs will use the following data model
 
 """
