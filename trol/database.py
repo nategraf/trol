@@ -1,4 +1,5 @@
-from trol import ModelType, Collection, Property 
+from trol import ModelType, Collection, Property
+
 
 class DatabaseType(type):
     def __init__(cls, *args, **kwargs):
@@ -30,6 +31,7 @@ class DatabaseType(type):
                 attr._rtol_database = cls
 
         super().__init__(*args, **kwargs)
+
 
 class Database(metaclass=DatabaseType):
     # Wait a minute! This class is empty

@@ -20,7 +20,9 @@ class OnlineUtilTests(unittest.TestCase):
         (str, "I am a test string!"),
         (int, 42),
         (float, 3.1415),
-        (bytes, b'\xDE\xAD\xBE\xEF')
+        (bytes, b'\xDE\xAD\xBE\xEF'),
+        (bool, True),
+        (bool, False)
     )
     @ddt.unpack
     def test_roundtrip(self, typ, data):

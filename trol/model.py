@@ -201,6 +201,7 @@ class Model(metaclass=ModelType):
 _seperator = b'\xfe'
 _indicator = b'\xfc'
 
+
 @serializer(Model)
 def serialize_model(model):
     """Serialize a model instance into a key reference
@@ -233,6 +234,7 @@ class ModelDeserializationError(Exception):
 
     def __str__(self):
         return "Failed to deserialize '{}' to a Model".format(self.key)
+
 
 @deserializer(Model)
 def deserialize_model(byts):

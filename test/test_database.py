@@ -1,6 +1,7 @@
 import unittest
 from trol import Model, Property, Set, Database
 
+
 class TestDatabase(unittest.TestCase):
     def test_init(self):
         canary = object()

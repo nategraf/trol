@@ -25,11 +25,19 @@ def serialize_bytes(obj):
     return obj
 
 
+def serialize_bool(obj):
+    if obj:
+        return b'True'
+    else:
+        return b'False'
+
+
 serializers = {
     str: serialize_str,
     int: serialize_int,
     float: serialize_float,
     bytes: serialize_bytes,
+    bool: serialize_bool,
 }
 """ dict[type, Callable[[object], bytes]]: A dictionary of serializers known trol classes
 
@@ -69,8 +77,11 @@ b'<HOT>10'
 >>> sm.bar.howhot
 RETURN OF THE HNC!
 10
+>>> r.flushall()
+True
 
 """
+
 
 def serializer(cls):
     """A convinience decorator to register a serializer"""
@@ -78,6 +89,7 @@ def serializer(cls):
         serializers[cls] = f
         return f
     return decorator
+
 
 class Serializer:
     """A class containing the provided serialize functions for selected type
@@ -128,17 +140,27 @@ def deserialize_float(byts):
 def deserialize_bytes(byts):
     return byts
 
+
+def deserialize_bool(byts):
+    if byts == b'True':
+        return True
+    else:
+        return False
+
+
 deserializers = {
     str: deserialize_str,
     int: deserialize_int,
     float: deserialize_float,
     bytes: deserialize_bytes,
+    bool: deserialize_bool
 }
 """ dict[type, Callable[[bytes], object]]: A dictionary of deserializers known trol classes
 
 Additonal entries can be added to support new deserializable types
 There should be an entry here for each one in serializers
 """
+
 
 def deserializer(cls):
     """A convinience decorator to register a deserializer"""
