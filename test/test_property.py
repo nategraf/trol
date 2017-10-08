@@ -1,7 +1,7 @@
 import docker
 import unittest
 import pickle
-from redis import StrictRedis
+from redis import Redis
 from trol import Property, RedisKeyError
 from .common import ensure_redis_is_online
 
@@ -46,7 +46,7 @@ class OnlinePropertyTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.container_token = ensure_redis_is_online()
-        cls.redis = StrictRedis(host='localhost', port=6379, db=0)
+        cls.redis = Redis(host='localhost', port=6379, db=0)
 
     def setUp(self):
         self.redis.flushall()
