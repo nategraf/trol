@@ -1,9 +1,9 @@
-.. Redis Thin Object Layer documentation master file, created by
-   sphinx-quickstart on Sun Oct  1 16:24:06 2017.
+.. Thin Redis Object Layer documentation master file, created by
+   sphinx-quickstart on Mon Oct  9 09:48:28 2017.
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to Redis Thin Object Layer's documentation!
+Welcome to Thin Redis Object Layer's documentation!
 ===================================================
 
 .. toctree::
@@ -13,11 +13,46 @@ Welcome to Redis Thin Object Layer's documentation!
 
 
 Indices and tables
-==================
+------------------
 
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
 
-.. automodule:: rtol
+
+Model
+-----
+
+.. automodule:: trol.model
    :members:
+
+Property
+--------
+
+.. automodule:: trol.property
+   :members:
+
+Database
+--------
+
+.. automodule:: trol.database
+   :members:
+
+Collection
+----------
+
+.. automodule:: trol.collection
+   :members:
+
+Serialization
+-------------
+
+.. automodule:: trol.util
+   :members:
+
+Exceptions
+----------
+
+.. automodule:: trol.exceptions
+   :members:
+
