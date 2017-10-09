@@ -180,6 +180,34 @@ class Model(metaclass=ModelType):
         for prop in props:
             prop.set(self, prop.null)
 
+    def exists(self, *propnames):
+        """Checks the properties in this model for existance in Redis
+
+        Args:
+            *propnames (list[str]): The attribute nanes of properties which should be checked for existance.
+                If at least one property is specified, True will be returnedif all proerties exist
+                If none are provided, the default is to return true if any property exists.
+        """
+        if propnames:
+            props = list()
+            combine = all # The buitin function all
+            for propname in propnames:
+                props.append(self._rtol_properties[propname])
+        else:
+            combine = any # The buitin function any
+            props = self._rtol_properties.values()
+
+        keys = []
+        for prop in props:
+            keys.append(prop.key(self))
+
+        pipe = self.redis.pipeline()
+
+        for key in keys:
+            pipe.exists(key)
+
+        return combine(pipe.execute())
+
     def update(self, **kwargs):
         """Updates the local values of multiple properties and commits them if autocommit is set
 

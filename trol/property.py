@@ -151,6 +151,17 @@ class Property:
             self.set(obj, None)
         return ok
 
+    def exists(self, obj):
+        """Checks whether or not a value is set for this property in Redis
+
+        Args:
+            obj (object): This property's holder
+
+        Returns:
+            bool: True if the key have a value in Redis. False otherwise
+        """
+        return obj.redis.exists(self.key(obj))
+
     def invalidate(self, obj):
         """Invalidates the local value to indicate a fetch must be done
 

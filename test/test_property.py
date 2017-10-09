@@ -183,3 +183,16 @@ class OnlinePropertyTests(unittest.TestCase):
         self.assertTrue(X.prop.delete(x))
         self.assertIsNone(self.redis.get(key))
         self.assertFalse(X.prop.delete(x))
+
+    def test_exists(self):
+        class X:
+            redis = self.redis
+            prop = Property("p")
+            key = "xkey"
+
+        x = X()
+        key = X.prop.key(x)
+
+        self.assertFalse(X.prop.exists(x))
+        self.redis.set(key, "canary")
+        self.assertTrue(X.prop.exists(x))

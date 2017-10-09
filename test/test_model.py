@@ -161,3 +161,18 @@ class OnlineModelTests(unittest.TestCase):
         self.assertEquals(X.redis.get("X:xyz:2").decode('utf-8'),  "canary")
         self.assertEquals(X.redis.get("X:xyz:three").decode('utf-8'), '42')
         self.assertIsNone(X.redis.get("X:xyz:four"))
+
+    def test_exists(self):
+        x = X("xyz")
+
+        self.assertFalse(x.exists())
+
+        x.update(
+            one=b'\xDE\xAD\xBE\xEF',
+            two="canary",
+            three=42
+        )
+
+        self.assertTrue(x.exists())
+        self.assertFalse(x.exists('three', 'four'))
+        self.assertTrue(x.exists('two', 'three'))
