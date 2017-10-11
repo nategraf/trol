@@ -25,3 +25,4 @@ class TestDatabase(unittest.TestCase):
         self.assertIs(X.Mod, X._rtol_models['Mod'])
         mod = X.Mod()
         self.assertIs(mod.redis, canary)
+        self.assertIs(X.collect.redis, canary)

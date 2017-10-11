@@ -56,6 +56,8 @@ class Collection(object):
     :members:
     """
 
+    _rtol_database = None
+
     def __init__(self, name=None, redis=None, typ=None, key=None, serializer=None, deserializer=None):
         self._name = name
         self._redis = redis
@@ -160,6 +162,8 @@ class Collection(object):
         """``redis.Redis``: A connection object for interacting with Redis"""
         if self._redis is not None:
             return self._redis
+        elif self._rtol_database is not None:
+            return self._rtol_database.redis
         else:
             raise AttributeEror(
                 "'{self.__class__.__name__}' has no connection set. If not bound to a class, a collection must have it's connection specified".format(self=self))
