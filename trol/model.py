@@ -21,18 +21,18 @@ class ModelType(type):
     It will assign the names to any collections which did not have their names assigned
     """
     def __init__(cls, *args, **kwargs):
-        cls._rtol_properties = dict()
-        cls._rtol_collections = dict()
+        cls._trol_properties = dict()
+        cls._trol_collections = dict()
 
         for attrname, attr in cls.__dict__.items():
             if isinstance(attr, Property):
-                cls._rtol_properties[attrname] = attr
+                cls._trol_properties[attrname] = attr
 
                 if attr._name is None:
                     attr._name = attrname
 
             if isinstance(attr, Collection):
-                cls._rtol_collections[attrname] = attr
+                cls._trol_collections[attrname] = attr
 
                 if attr._name is None:
                     attr._name = attrname
@@ -110,7 +110,7 @@ class Model(metaclass=ModelType):
 
         # Use try/except rather than if/else for this block because it should succeed if models are correct
         try:
-            return self._rtol_database.redis
+            return self._trol_database.redis
         except AttributeError:
             return None
 
@@ -128,9 +128,9 @@ class Model(metaclass=ModelType):
         if propnames:
             props = list()
             for propname in propnames:
-                props.append(self._rtol_properties[propname])
+                props.append(self._trol_properties[propname])
         else:
-            props = self._rtol_properties.values()
+            props = self._trol_properties.values()
 
         for prop in props:
             prop.invalidate(self)
@@ -145,9 +145,9 @@ class Model(metaclass=ModelType):
         if propnames:
             props = list()
             for propname in propnames:
-                props.append(self._rtol_properties[propname])
+                props.append(self._trol_properties[propname])
         else:
-            props = self._rtol_properties.values()
+            props = self._trol_properties.values()
 
         mappings = dict()
         for prop in props:
@@ -167,9 +167,9 @@ class Model(metaclass=ModelType):
         if propnames:
             props = list()
             for propname in propnames:
-                props.append(self._rtol_properties[propname])
+                props.append(self._trol_properties[propname])
         else:
-            props = self._rtol_properties.values()
+            props = self._trol_properties.values()
 
         keys = []
         for prop in props:
@@ -190,12 +190,12 @@ class Model(metaclass=ModelType):
         """
         if propnames:
             props = list()
-            combine = all # The buitin function all
+            combine = all  # The buitin function all
             for propname in propnames:
-                props.append(self._rtol_properties[propname])
+                props.append(self._trol_properties[propname])
         else:
-            combine = any # The buitin function any
-            props = self._rtol_properties.values()
+            combine = any  # The buitin function any
+            props = self._trol_properties.values()
 
         keys = []
         for prop in props:
@@ -216,7 +216,7 @@ class Model(metaclass=ModelType):
         """
         commits = list()
         for propname, value in kwargs.items():
-            prop = self._rtol_properties[propname]
+            prop = self._trol_properties[propname]
             prop.set(self, value)
 
             if prop.autocommit or (prop.autocommit is None and self.autocommit):

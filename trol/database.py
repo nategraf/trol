@@ -6,28 +6,28 @@ class DatabaseType(type):
         """
         TODO: Write a docstring
         """
-        cls._rtol_properties = dict()
-        cls._rtol_collections = dict()
-        cls._rtol_models = dict()
+        cls._trol_properties = dict()
+        cls._trol_collections = dict()
+        cls._trol_models = dict()
 
         for attrname, attr in cls.__dict__.items():
             if isinstance(attr, Property):
-                cls._rtol_properties[attrname] = attr
+                cls._trol_properties[attrname] = attr
 
                 if attr._name is None:
                     attr._name = attrname
 
             if isinstance(attr, Collection):
-                cls._rtol_collections[attrname] = attr
+                cls._trol_collections[attrname] = attr
 
                 if attr._name is None:
                     attr._name = attrname
 
-                attr._rtol_database = cls
+                attr._trol_database = cls
 
             if isinstance(attr, ModelType):
-                cls._rtol_models[attrname] = attr
-                attr._rtol_database = cls
+                cls._trol_models[attrname] = attr
+                attr._trol_database = cls
 
         super().__init__(*args, **kwargs)
 

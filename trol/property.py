@@ -48,7 +48,7 @@ class Property:
         Returns:
             str: The mangled name
         """
-        return "_rtol_property_{}".format(name)
+        return "_trol_property_{}".format(name)
 
     def __init__(self, name=None, typ=None, autocommit=None, alwaysfetch=None, serializer=None, deserializer=None):
         self.name = name
