@@ -286,7 +286,11 @@ class Set(Collection):
         set()
 
         """
-        return self.deserialize(self.redis.spop(self.key))
+        value = self.redis.spop(self.key)
+        if value is None:
+            return None
+        else:
+            return self.deserialize(value)
 
     def isdisjoint(self, other):
         """
@@ -706,7 +710,11 @@ class Set(Collection):
         >>> s.clear()
 
         """
-        return self.deserialize(self.redis.srandmember(self.key))
+        value = self.redis.srandmember(self.key)
+        if value is None:
+            return None
+        else:
+            return self.deserialize(value)
 
     add = sadd
     """see sadd"""
@@ -829,7 +837,11 @@ class List(Collection):
         :return: the popped value.
 
         """
-        return self.deserialize(self.redis.lpop(self.key))
+        value = self.redis.lpop(self.key)
+        if value is None:
+            return None
+        else:
+            return self.deserialize(value)
 
     def rpop(self):
         """
@@ -837,7 +849,11 @@ class List(Collection):
 
         :return: the popped value.
         """
-        return self.deserialize(self.redis.rpop(self.key))
+        value = self.redis.rpop(self.key)
+        if value is None:
+            return None
+        else:
+            return self.deserialize(value)
 
     def rpoplpush(self, key):
         """
@@ -859,7 +875,11 @@ class List(Collection):
         >>> l2.clear()
 
         """
-        return self.deserialize(self.redis.rpoplpush(self.key, key))
+        value = self.redis.rpoplpush(self.key, key)
+        if value is None:
+            return None
+        else:
+            return self.deserialize(value)
 
     def lrem(self, value, num=1):
         """
@@ -919,7 +939,11 @@ class List(Collection):
         :return: the value or None if out of range.
 
         """
-        return self.deserialize(self.redis.lindex(self.key, idx))
+        value = self.redis.lindex(self.key, idx)
+        if value is None:
+            return None
+        else:
+            return self.deserialize(value)
 
     def lset(self, idx, value):
         """
@@ -1477,7 +1501,11 @@ class Hash(Collection, collections.MutableMapping):
         """
         Returns the value stored in the field, None if the field doesn't exist.
         """
-        return self.deserialize(self.redis.hget(self.key, field))
+        value = self.redis.hget(self.key, field)
+        if value is None:
+            return None
+        else:
+            return self.deserialize(value)
 
     def hexists(self, field):
         """
