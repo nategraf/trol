@@ -2,6 +2,10 @@ Thin Redis Object Layer (TROL)
 ==============================
 **A library for light and predictable python object mappings to Redis**
 
+Documentation
+-------------
+Documentation is generated through sphinx and hosted at `Read the Docs <http://redis-thin-object-layer.readthedocs.io/en/latest/>`_!
+
 Why did you build this?
 -----------------------
 I wanted an object oriented way to interact with redis that would provide exacting control over database layout, predicatble and fast queries, and good documentation. (hopefully I got that last one right, but I'm not the one to judge)
