@@ -165,7 +165,7 @@ class Collection(object):
         elif self._trol_database is not None:
             return self._trol_database.redis
         else:
-            raise AttributeEror(
+            raise AttributeError(
                 "'{self.__class__.__name__}' has no connection set. If not bound to a class, a collection must have it's connection specified".format(self=self))
 
     @redis.setter
@@ -191,7 +191,7 @@ class Collection(object):
         if self.name is not None:
             return self.name
         else:
-            raise AttributeEror(
+            raise AttributeError(
                 "'{self.__class__.__name__}' has no name or key set. If not bound to a class, a collection must have either it's key or name attribute specified".format(self=self))
 
     @key.setter
