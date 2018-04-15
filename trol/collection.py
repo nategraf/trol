@@ -1419,6 +1419,9 @@ class SortedSet(Collection):
 
 
 class Hash(Collection, collections.MutableMapping):
+    """
+    This class represent a hash (i.e. dict) object as seen in redis.
+    """
 
     def __iter__(self):
         return self.hgetall().__iter__()
