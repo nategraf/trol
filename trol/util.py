@@ -6,31 +6,24 @@ This module currently contains the serialize and deserialize methods for the Pro
 import weakref
 import trol
 
-# redis-py did this for me already, no need to reinvent the wheel :P
-
 
 def serialize_str(obj):
     return obj
 
-
 def serialize_int(obj):
     return obj
-
 
 def serialize_float(obj):
     return obj
 
-
 def serialize_bytes(obj):
     return obj
-
 
 def serialize_bool(obj):
     if obj:
         return b'True'
     else:
         return b'False'
-
 
 serializers = {
     str: serialize_str,
@@ -90,7 +83,6 @@ def serializer(cls):
         return f
     return decorator
 
-
 class Serializer:
     """A class containing the provided serialize functions for selected type
 
@@ -128,25 +120,20 @@ class Serializer:
 def deserialize_str(byts):
     return byts.decode('utf-8')
 
-
 def deserialize_int(byts):
     return int(byts.decode('utf-8'))
-
 
 def deserialize_float(byts):
     return float(byts.decode('utf-8'))
 
-
 def deserialize_bytes(byts):
     return byts
-
 
 def deserialize_bool(byts):
     if byts == b'True':
         return True
     else:
         return False
-
 
 deserializers = {
     str: deserialize_str,
@@ -161,14 +148,12 @@ Additonal entries can be added to support new deserializable types
 There should be an entry here for each one in serializers
 """
 
-
 def deserializer(cls):
     """A convinience decorator to register a deserializer"""
     def decorator(f):
         deserializers[cls] = f
         return f
     return decorator
-
 
 class Deserializer:
     """A class containing the provided deserialize functions for selected type
