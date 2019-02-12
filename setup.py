@@ -3,7 +3,7 @@ from distutils.core import setup
 setup(
     name='trol',
     packages=['trol'],  # this must be the same as the name above
-    version='0.2.2',
+    version='0.3.0',
     description='A light and predictable Redis object mapper',
     author='Victor "Nate" Graf',
     author_email='nategraf1@gmail.com',
