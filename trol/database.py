@@ -1,10 +1,12 @@
-from trol import ModelType, Collection, Property
+from . import ModelType, Collection, Property
 
 
 class DatabaseType(type):
     def __init__(cls, *args, **kwargs):
-        """
-        TODO: Write a docstring
+        """DatabaseType represensents a trol managed database.
+        
+        Model, Collection and Property objects are gain reflected name awareness and a database collection from the
+        parent Database class.
         """
         cls._trol_properties = dict()
         cls._trol_collections = dict()

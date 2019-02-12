@@ -1,0 +1,8 @@
+nose2
+cov-core
+docker
+ddt
+setuptools
+wheel
+twine
+IPython

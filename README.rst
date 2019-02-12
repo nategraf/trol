@@ -4,7 +4,9 @@ Thin Redis Object Layer (TROL)
 
 Documentation
 -------------
-Documentation is generated through sphinx and hosted at `Read the Docs <http://redis-thin-object-layer.readthedocs.io/en/latest/>`_!
+Documentation is generated through sphinx and hosted at `Read the Docs`_! 
+
+.. _Read the Docs: <http://redis-thin-object-layer.readthedocs.io/en/latest/>`_
 
 Why did you build this?
 -----------------------

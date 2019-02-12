@@ -1,5 +1,5 @@
 from functools import wraps
-from trol import Property, Collection, deserializer, serializer
+from . import Property, Collection, Lock, deserializer, serializer
 import weakref
 
 """Provides the Model and ModelType classes, which are the basic blocks of trol
@@ -13,7 +13,7 @@ _all_models = weakref.WeakValueDictionary()
 
 
 class ModelType(type):
-    """A metaclass which provides awareness of properties and collections
+    """ModelType is a metaclass providing awareness of member trol objects to Model.
 
     This type embeds a dict of :obj:`Property` which tracks any properties assigned at class load.
     It assigns the names of properties who are unamed
@@ -23,19 +23,20 @@ class ModelType(type):
     def __init__(cls, *args, **kwargs):
         cls._trol_properties = dict()
         cls._trol_collections = dict()
+        cls._trol_locks = dict()
 
         for attrname, attr in cls.__dict__.items():
             if isinstance(attr, Property):
                 cls._trol_properties[attrname] = attr
-
-                if attr._name is None:
-                    attr._name = attrname
-
-            if isinstance(attr, Collection):
+            elif isinstance(attr, Collection):
                 cls._trol_collections[attrname] = attr
+            elif isinstance(attr, Lock):
+                cls._trol_locks[attrname] = attr
+            else:
+                continue
 
-                if attr._name is None:
-                    attr._name = attrname
+            if attr._name is None:
+                attr._name = attrname
 
         _all_models[cls.__name__] = cls
 
@@ -43,7 +44,7 @@ class ModelType(type):
 
 
 class Model(metaclass=ModelType):
-    """A class to support object oriented Redis communication
+    """Model is a class that can hold and operate on trol properties and collections to form a trol object.
 
     Attributes:
         autocommit (bool): If `True`, properties will be immediatly commited to Redis when modified. Default is `True`

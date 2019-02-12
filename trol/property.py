@@ -1,17 +1,13 @@
 import pickle
-from trol import RedisKeyError, Serializer, Deserializer
-
+from . import RedisKeyError, Serializer, Deserializer
 
 class Property:
-    """A property object which emulates a remote object as local
+    """Property provides a field to a Model, backed in Redis, as if it were a local property.
 
     The expectation is that this Property object is embedded as a class level attribute
     The class it is embedded in should define `redis` and `key` attrbutes to define where this property is stored
 
-    Note:
-        This class is intended to be used with trol.Model subclasses, but can work on it's own
-
-    Args:
+    Attributes:
         autocommit (bool): Commit the local value to Redis on every assignment
             If set to None, assignments will check the holder object for an autocommit value, and default to True if not present
             Useful if you don't want to worry about forgetting to commit
@@ -23,12 +19,6 @@ class Property:
             Default is `pickle.dumps`, which is not human readable, but will work with most python object
         deserializer (Callable[[bytes], object]): A function or callable which will be used for deserializing the value after reciving it from redis
             Default is `pickle.loads`, the counterpart for the deafault serializer
-
-    Args:
-        autocommit (bool): Sets the autocommit attribute. Defaults to None
-        alwayfetch (bool): Sets the alwaysfetch attribute. Defaults to None
-        serializer (Callable[[object], bytes]): Sets the serializer attribute. Defaults to None
-        deserializer (Callable[[bytes], object]): Sets the deserializer attribute. Defaults to None
     """
     class Null:
         """A class to act as an indicator value"""
@@ -40,13 +30,13 @@ class Property:
     def mangle(name):
         """Creates a mangled version of the inputted name
 
-        Mangling is the process of changing an attribute name in such a way that it will liekly not collide with other attributes
+        Mangling produces a name unlikely to colide with other attribute names.
 
         Args:
             name (str): The name which should be mangled
 
         Returns:
-            str: The mangled name
+            str: Mangled name
         """
         return "_trol_property_{}".format(name)
 
@@ -72,7 +62,7 @@ class Property:
         else:
             self.deserialize = deserializer
 
-    def __get__(self, obj, typ=None):
+    def __get__(self, obj, cls=None):
         if obj is None:
             return self
 
@@ -171,12 +161,12 @@ class Property:
         self.set(obj, self.null)
 
     def key(self, obj):
-        """Gets the key where this property's data exists  in Redis
+        """Gets the key where this property's data exists in Redis
 
-        The key for this property is the key of it's holder, with `:<name>` appended
+        The key for this property is the key of it's holder, with ``:<name>`` appended
 
         Args:
-            obj (object): This propery's holder
+            obj (object): Model instance holding this property.
 
         Returns:
             str: The key which can be used to get this property's data from Redis

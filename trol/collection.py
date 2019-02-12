@@ -30,7 +30,7 @@ Caching for collections is a trickier prospect, and therefore is not attempted
 import threading
 import collections
 import pickle
-from trol import Serializer, Deserializer
+from . import Serializer, Deserializer
 
 
 # Use a guid to make sure that no wil define a colliding key by accident
