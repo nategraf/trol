@@ -5,7 +5,6 @@ import weakref
 holder_ref = None
 lock = Lock()
 
-
 def ensure_redis_is_online():
     """Ensure a redis container is up, starting it is needed, and recieve a token to hold
 

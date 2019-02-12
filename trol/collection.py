@@ -1162,17 +1162,17 @@ class SortedSet(Collection):
         20.0
         >>> s.add({'c':5, 'd':6})
         2
+        >>> s.zscore('d')
+        6.0
         >>> s.clear()
 
         """
-        _members = []
-        if not isinstance(members, dict):
-            _members = [self.serialize(members), score]
+        if isinstance(members, dict):
+            mapping = {self.serialize(member): score for member, score in  members.items()}
         else:
-            for member, score in members.items():
-                _members += [self.serialize(member), score]
+            mapping = {self.serialize(members): score}
 
-        return self.redis.zadd(self.key, *_members)
+        return self.redis.zadd(self.key, mapping)
 
     def zrem(self, *values):
         """
@@ -1194,23 +1194,23 @@ class SortedSet(Collection):
         values = [self.serialize(v) for v in _parse_values(values)]
         return self.redis.zrem(self.key, *values)
 
-    def zincrby(self, att, value=1):
+    def zincrby(self, value, att):
         """
         Increment the score of the item by ``value``
 
-        :param att: the member to increment
         :param value: the value to add to the current score
+        :param att: the member to increment
         :returns: the new score of the member
 
         >>> s = trol.SortedSet('foo', redis)
         >>> s.add('a', 10)
         1
-        >>> s.zincrby('a', 10)
+        >>> s.zincrby(10, 'a')
         20.0
         >>> s.clear()
 
         """
-        return self.redis.zincrby(self.key, self.serialize(att), value)
+        return self.redis.zincrby(self.key, value, self.serialize(att))
 
     def zrevrank(self, member):
         """
@@ -1394,10 +1394,10 @@ class SortedSet(Collection):
         Returns the rank of the element.
 
         >>> s = trol.SortedSet('foo', redis)
-        >>> s.add({"a": 30, 'b':20, 'c':10})
+        >>> s.add({'a': 30, 'b':20, 'c':10})
         3
-        >>> s.zrank("a")
-        2
+        >>> s.zrank('b')
+        1
         >>> s.clear()
 
         """
