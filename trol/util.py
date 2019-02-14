@@ -38,6 +38,7 @@ Additonal entries can be added to support new serializable types
 
 >>> import redis
 >>> import trol
+...
 >>> class HotNewClass:
 ...     def __init__(self, howhot):
 ...         self.howhot = howhot
