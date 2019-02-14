@@ -3,8 +3,8 @@ Thin Redis Object Layer (TROL)
 **A library for light and predictable python object mappings to Redis**
 
 .. image:: https://readthedocs.org/projects/redis-thin-object-layer/badge/?version=latest
-:target: https://redis-thin-object-layer.readthedocs.io/en/latest/?badge=latest
-         :alt: Documentation Status
+   :target: https://redis-thin-object-layer.readthedocs.io/en/latest/?badge=latest
+   :alt: Documentation Status
 
 Documentation
 -------------
