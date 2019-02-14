@@ -41,6 +41,10 @@ class Lock:
     >>> sleepy.print(1, "my turn!")
     ok, go ahead
     my turn!
+
+    Just like with Property, the name of the lock is used to form it's Redis key and can either by specified explicitly
+    in the constructor or infered from the attribute name in a Model.
+
     >>> with sleepy.sleepy_lock:
     ...     print(sleepy.redis.keys())
     [b'Sleepy:foo:sleepy_lock']

@@ -1,8 +1,8 @@
-import doctest
-import unittest
-import trol
-from redis import Redis
 from .common import ensure_redis_is_online
+from redis import Redis
+import doctest
+import trol
+import unittest
 
 container_token = None
 redis = None
