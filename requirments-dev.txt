@@ -1,3 +1,4 @@
+devpi
 nose2
 cov-core
 docker

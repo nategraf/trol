@@ -44,6 +44,12 @@ Collection
 .. automodule:: trol.collection
    :members:
 
+Lock
+----
+
+.. automodule:: trol.lock
+   :members:
+
 Serialization
 -------------
 
