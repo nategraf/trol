@@ -2,7 +2,7 @@ import docker
 import unittest
 import pickle
 from redis import Redis
-from trol import Property, RedisKeyError
+from trol import Property
 from .common import ensure_redis_is_online
 
 
@@ -118,7 +118,7 @@ class OnlinePropertyTests(unittest.TestCase):
         self.assertTrue(X.prop.commit(x))
         self.assertEquals(pickle.loads(self.redis.get(key)), "something")
 
-    def test_redis_key_error(self):
+    def test_redis_returns_null(self):
         class X:
             redis = self.redis
             prop = Property("p", alwaysfetch=True)
@@ -126,12 +126,7 @@ class OnlinePropertyTests(unittest.TestCase):
 
         x = X()
         key = X.prop.key(x)
-
-        with self.assertRaises(RedisKeyError) as ex:
-            x.prop
-
-        self.assertEquals(ex.exception.key, key)
-        self.assertIn(key, str(ex.exception))
+        self.assertIs(x.prop, Property.null)
 
     def test_getter_alwaysfetch(self):
         class X:
@@ -141,9 +136,8 @@ class OnlinePropertyTests(unittest.TestCase):
 
         x = X()
         key = X.prop.key(x)
-        with self.assertRaises(RedisKeyError):
-            x.prop
-        self.assertIsNone(self.redis.get(key))
+
+        self.assertIs(x.prop, Property.null)
 
         self.redis.set(key, pickle.dumps("canary"))
         self.assertEquals(x.prop, "canary")
@@ -157,9 +151,7 @@ class OnlinePropertyTests(unittest.TestCase):
         x = X()
         key = X.prop.key(x)
 
-        with self.assertRaises(RedisKeyError):
-            x.prop
-        self.assertIsNone(self.redis.get(key))
+        self.assertIs(x.prop, Property.null)
 
         self.redis.set(key, pickle.dumps("canary"))
         self.assertEquals(x.prop, "canary")

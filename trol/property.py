@@ -1,5 +1,5 @@
 import pickle
-from . import RedisKeyError, Serializer, Deserializer
+from . import Serializer, Deserializer
 
 class Property:
     """Property provides a field to a Model, backed in Redis, as if it were a local property.
@@ -22,6 +22,9 @@ class Property:
     """
     class Null:
         """A class to act as an indicator value"""
+
+        def __bool__(self):
+            return False
 
     null = Null()
     """Property.Null: An indicator field to show the value needs to be fetched"""
@@ -70,9 +73,6 @@ class Property:
 
         if value is self.null or self.alwaysfetch or (self.alwaysfetch is None and getattr(obj, 'alwaysfetch', False)):
             value = self.fetch(obj)
-
-        if value is self.null:
-            raise RedisKeyError(self.key(obj))
 
         return value
 

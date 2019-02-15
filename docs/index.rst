@@ -55,10 +55,3 @@ Serialization
 
 .. automodule:: trol.util
    :members:
-
-Exceptions
-----------
-
-.. automodule:: trol.exceptions
-   :members:
-

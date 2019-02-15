@@ -245,6 +245,8 @@ class Set(Collection):
         3
         >>> s.add([4])
         1
+        >>> s.add([4])
+        0
         >>> s.members == {1, 2, 3, 4}
         True
         >>> s.clear()
