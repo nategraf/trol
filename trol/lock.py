@@ -4,20 +4,24 @@ import threading
 class Lock:
     """Lock provides a Redis-backed distributed lock on a Model or Database instance.
 
-    Lock should be a class member of a Model class, and provides a unique lock to each instance of that model. It is
-    essentially a factory class for `redis-py's Lock objects`_ 
+    Lock should be a class member of a Model class, and provides a unique lock to each instance of
+    that model. It is essentially a factory class for `redis-py's Lock objects`_ 
 
     .. _redis-py's Lock objects: https://redis-py.readthedocs.io/en/latest/#redis.Redis.lock
 
-    Attributes:
-        timeout (float or None): Maximum time the lock can be held before it expires, releasing it automatically.
-            When set to None, the lock never expired.
-        sleep (float): Time, in seconds, to sleep between each attempt to acquire the lock.
-        blocking_timeout (float or None): Maximum time to spend acquiring the lock.
-        lock_class (type or None): Class used to construct the lock. See `redis.Lock`_ for the canonical version.
-        thread_local (bool): Whether to use threadlocal storage when to store the reservation token.
+    Attributes: timeout (float or None): Maximum time the lock can be held before it expires,
+    releasing it automatically.  When set to None, the lock never expired.  sleep (float): Time, in
+    seconds, to sleep between each attempt to acquire the lock.  blocking_timeout (float or None):
+    Maximum time to spend acquiring the lock.  lock_class (type or None): Class used to construct
+    the lock. See `redis.Lock`_ for the canonical version.  thread_local (bool): Whether to use
+    threadlocal storage when to store the reservation token.
 
     .. _redis.Lock: https://github.com/andymccurdy/redis-py/blob/master/redis/lock.py
+
+    TODO: Lock currently only works when bound to an object, and not dirctly from the Database
+    class. Lock should be refactored as a subclass of redis.lock.Lock to allow direct operations
+    (instead of being built during the __get__ access) and/or Database should be refactored to no
+    longer reley janky "class-binding".
 
     >>> import trol
     >>> import time
@@ -42,8 +46,8 @@ class Lock:
     ok, go ahead
     my turn!
 
-    Just like with Property, the name of the lock is used to form it's Redis key and can either by specified explicitly
-    in the constructor or infered from the attribute name in a Model.
+    Just like with Property, the name of the lock is used to form it's Redis key and can either by
+    specified explicitly in the constructor or infered from the attribute name in a Model.
 
     >>> with sleepy.sleepy_lock:
     ...     print(sleepy.redis.keys())
