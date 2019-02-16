@@ -1,6 +1,15 @@
 import pickle
 from . import Serializer, Deserializer
 
+class Null:
+    """Class of indicator value for unset properties"""
+
+    def __bool__(self):
+        return False
+
+null = Null()
+"""An indicator value for unset properties"""
+
 class Property:
     """Property provides a field to a Model, backed in Redis, as if it were a local property.
 
@@ -20,15 +29,6 @@ class Property:
         deserializer (Callable[[bytes], object]): A function or callable which will be used for deserializing the value after reciving it from redis
             Default is `pickle.loads`, the counterpart for the deafault serializer
     """
-    class Null:
-        """A class to act as an indicator value"""
-
-        def __bool__(self):
-            return False
-
-    null = Null()
-    """Property.Null: An indicator field to show the value needs to be fetched"""
-
     @staticmethod
     def mangle(name):
         """Creates a mangled version of the inputted name
@@ -71,7 +71,7 @@ class Property:
 
         value = self.value(obj)
 
-        if value is self.null or self.alwaysfetch or (self.alwaysfetch is None and getattr(obj, 'alwaysfetch', False)):
+        if value is null or self.alwaysfetch or (self.alwaysfetch is None and getattr(obj, 'alwaysfetch', False)):
             value = self.fetch(obj)
 
         return value
@@ -105,7 +105,7 @@ class Property:
         if response is not None:
             value = self.deserialize(response)
         else:
-            value = self.null
+            value = null
 
         self.set(obj, value)
         return value
@@ -113,7 +113,7 @@ class Property:
     def commit(self, obj):
         """Commits this properties value to Redis
 
-        Does nothing if the value is Property.null, which means there is nothing to write
+        Does nothing if the value is null, which means there is nothing to write
 
         Args:
             obj (object): This property's holder
@@ -122,7 +122,7 @@ class Property:
             bool: True if the set transaction was successful. False otherwise
         """
         value = self.value(obj)
-        if self.value(obj) is self.null:
+        if self.value(obj) is null:
             return True
 
         return obj.redis.set(self.key(obj), self.serialize(value))
@@ -158,7 +158,7 @@ class Property:
         Args:
             obj (object): This property's holder
         """
-        self.set(obj, self.null)
+        self.set(obj, null)
 
     def key(self, obj):
         """Gets the key where this property's data exists in Redis
@@ -188,11 +188,10 @@ class Property:
             object: The local value of this property
         """
         try:
-            value = getattr(obj, self.mangle(self.name))
+            return getattr(obj, self.mangle(self.name))
         except AttributeError:
-            self.set(obj, self.null)
-            value = self.null
-        return value
+            self.set(obj, null)
+            return null
 
     def set(self, obj, value):
         """Sets the value stored in the holder obj

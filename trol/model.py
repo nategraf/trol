@@ -1,5 +1,5 @@
 from functools import wraps
-from . import Property, Collection, Lock, deserializer, serializer
+from . import Property, Collection, Lock, deserializer, serializer, null
 import weakref
 
 """Provides the Model and ModelType classes, which are the basic blocks of trol
@@ -153,7 +153,7 @@ class Model(metaclass=ModelType):
         mappings = dict()
         for prop in props:
             value = prop.value(self)
-            if value is not prop.null:
+            if value is not null:
                 mappings[prop.key(self)] = prop.serialize(value)
 
         self.redis.mset(mappings)
@@ -179,7 +179,7 @@ class Model(metaclass=ModelType):
         self.redis.delete(*keys)
 
         for prop in props:
-            prop.set(self, prop.null)
+            prop.set(self, null)
 
     def exists(self, *propnames):
         """Checks the properties in this model for existance in Redis

@@ -2,7 +2,7 @@ import docker
 import unittest
 import pickle
 from redis import Redis
-from trol import Property
+from trol import Property, null
 from .common import ensure_redis_is_online
 
 
@@ -36,7 +36,7 @@ class OfflinePropertyTests(unittest.TestCase):
             key = None
 
         x = X()
-        self.assertIs(X.prop.value(x), X.prop.null)
+        self.assertIs(X.prop.value(x), null)
         canary = object()
         X.prop.set(x, canary)
         self.assertIs(X.prop.value(x), canary)
@@ -126,7 +126,7 @@ class OnlinePropertyTests(unittest.TestCase):
 
         x = X()
         key = X.prop.key(x)
-        self.assertIs(x.prop, Property.null)
+        self.assertIs(x.prop, null)
 
     def test_getter_alwaysfetch(self):
         class X:
@@ -137,7 +137,7 @@ class OnlinePropertyTests(unittest.TestCase):
         x = X()
         key = X.prop.key(x)
 
-        self.assertIs(x.prop, Property.null)
+        self.assertIs(x.prop, null)
 
         self.redis.set(key, pickle.dumps("canary"))
         self.assertEquals(x.prop, "canary")
@@ -151,7 +151,7 @@ class OnlinePropertyTests(unittest.TestCase):
         x = X()
         key = X.prop.key(x)
 
-        self.assertIs(x.prop, Property.null)
+        self.assertIs(x.prop, null)
 
         self.redis.set(key, pickle.dumps("canary"))
         self.assertEquals(x.prop, "canary")
