@@ -1,6 +1,6 @@
 from .common import ensure_redis_is_online
 from redis import Redis
-from trol import Model, ModelType, Property, null
+from trol import Model, ModelType, Property, nil
 import unittest
 
 
@@ -155,7 +155,7 @@ class OnlineModelTests(unittest.TestCase):
         self.assertEquals(X.one.value(x), b'\xDE\xAD\xBE\xEF')
         self.assertEquals(X.two.value(x),  "canary")
         self.assertEquals(X.three.value(x), 42)
-        self.assertIs(X.four.value(x), null)
+        self.assertIs(X.four.value(x), nil)
 
         self.assertIsNone(X.redis.get("X:xyz:one"))
         self.assertEquals(X.redis.get("X:xyz:2").decode('utf-8'),  "canary")

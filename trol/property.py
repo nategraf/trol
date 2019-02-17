@@ -1,13 +1,13 @@
 import pickle
 from . import Serializer, Deserializer
 
-class Null:
+class Nil:
     """Class of indicator value for unset properties"""
 
     def __bool__(self):
         return False
 
-null = Null()
+nil = Nil()
 """An indicator value for unset properties"""
 
 class Property:
@@ -71,7 +71,7 @@ class Property:
 
         value = self.value(obj)
 
-        if value is null or self.alwaysfetch or (self.alwaysfetch is None and getattr(obj, 'alwaysfetch', False)):
+        if value is nil or self.alwaysfetch or (self.alwaysfetch is None and getattr(obj, 'alwaysfetch', False)):
             value = self.fetch(obj)
 
         return value
@@ -105,7 +105,7 @@ class Property:
         if response is not None:
             value = self.deserialize(response)
         else:
-            value = null
+            value = nil
 
         self.set(obj, value)
         return value
@@ -113,7 +113,7 @@ class Property:
     def commit(self, obj):
         """Commits this properties value to Redis
 
-        Does nothing if the value is null, which means there is nothing to write
+        Does nothing if the value is nil, which means there is nothing to write
 
         Args:
             obj (object): This property's holder
@@ -122,7 +122,7 @@ class Property:
             bool: True if the set transaction was successful. False otherwise
         """
         value = self.value(obj)
-        if self.value(obj) is null:
+        if self.value(obj) is nil:
             return True
 
         return obj.redis.set(self.key(obj), self.serialize(value))
@@ -137,7 +137,7 @@ class Property:
             bool: True if a the key was deleted. False if it didn't exist.
         """
         count = obj.redis.delete(self.key(obj))
-        self.set(obj, null)
+        self.set(obj, nil)
         return bool(count)
 
     def expire(self, obj, ttl):
@@ -159,7 +159,7 @@ class Property:
         ttl = round(ttl * 1000)
         ok = obj.redis.pexpire(self.key(obj), ttl)
         if not ok or ttl <= 0:
-            self.set(obj, null)
+            self.set(obj, nil)
         return ok
 
     def exists(self, obj):
@@ -179,7 +179,7 @@ class Property:
         Args:
             obj (object): This property's holder
         """
-        self.set(obj, null)
+        self.set(obj, nil)
 
     def key(self, obj):
         """Gets the key where this property's data exists in Redis
@@ -211,8 +211,8 @@ class Property:
         try:
             return getattr(obj, self.mangle(self.name))
         except AttributeError:
-            self.set(obj, null)
-            return null
+            self.set(obj, nil)
+            return nil
 
     def set(self, obj, value):
         """Sets the value stored in the holder obj

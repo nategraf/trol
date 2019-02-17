@@ -1,6 +1,6 @@
 from .common import ensure_redis_is_online
 from redis import Redis
-from trol import Property, null
+from trol import Property, nil
 import docker
 import pickle
 import time
@@ -37,7 +37,7 @@ class OfflinePropertyTests(unittest.TestCase):
             key = None
 
         x = X()
-        self.assertIs(X.prop.value(x), null)
+        self.assertIs(X.prop.value(x), nil)
         canary = object()
         X.prop.set(x, canary)
         self.assertIs(X.prop.value(x), canary)
@@ -119,7 +119,7 @@ class OnlinePropertyTests(unittest.TestCase):
         self.assertTrue(X.prop.commit(x))
         self.assertEquals(pickle.loads(self.redis.get(key)), "something")
 
-    def test_redis_returns_null(self):
+    def test_redis_returns_nil(self):
         class X:
             redis = self.redis
             prop = Property("p", alwaysfetch=True)
@@ -127,7 +127,7 @@ class OnlinePropertyTests(unittest.TestCase):
 
         x = X()
         key = X.prop.key(x)
-        self.assertIs(x.prop, null)
+        self.assertIs(x.prop, nil)
 
     def test_getter_alwaysfetch(self):
         class X:
@@ -138,7 +138,7 @@ class OnlinePropertyTests(unittest.TestCase):
         x = X()
         key = X.prop.key(x)
 
-        self.assertIs(x.prop, null)
+        self.assertIs(x.prop, nil)
 
         self.redis.set(key, pickle.dumps("canary"))
         self.assertEquals(x.prop, "canary")
@@ -152,7 +152,7 @@ class OnlinePropertyTests(unittest.TestCase):
         x = X()
         key = X.prop.key(x)
 
-        self.assertIs(x.prop, null)
+        self.assertIs(x.prop, nil)
 
         self.redis.set(key, pickle.dumps("canary"))
         self.assertEquals(x.prop, "canary")
@@ -176,7 +176,7 @@ class OnlinePropertyTests(unittest.TestCase):
         self.assertEquals(x.prop, "canary")
         self.assertTrue(X.prop.delete(x))
         self.assertIsNone(self.redis.get(key))
-        self.assertIs(x.prop, null)
+        self.assertIs(x.prop, nil)
         self.assertFalse(X.prop.delete(x))
 
     def test_expire_nonzero(self):
@@ -195,7 +195,7 @@ class OnlinePropertyTests(unittest.TestCase):
         self.assertGreater(self.redis.ttl(key), 0)
         time.sleep(1.5)
         self.assertIsNone(self.redis.get(key))
-        self.assertIs(X.prop.fetch(x), null)
+        self.assertIs(X.prop.fetch(x), nil)
 
     def test_expire_zero(self):
         class X:
@@ -211,7 +211,7 @@ class OnlinePropertyTests(unittest.TestCase):
         self.assertLess(self.redis.ttl(key), 0)
         self.assertTrue(X.prop.expire(x, 0))
         self.assertLess(self.redis.ttl(key), 0)
-        self.assertIs(x.prop, null)
+        self.assertIs(x.prop, nil)
 
     def test_exists(self):
         class X:
