@@ -1,9 +1,10 @@
-import docker
-import unittest
-import pickle
+from .common import ensure_redis_is_online
 from redis import Redis
 from trol import Property, null
-from .common import ensure_redis_is_online
+import docker
+import pickle
+import time
+import unittest
 
 
 class A:
@@ -171,10 +172,46 @@ class OnlinePropertyTests(unittest.TestCase):
         x = X()
         key = X.prop.key(x)
 
-        self.redis.set(key, "canary")
+        self.redis.set(key, pickle.dumps("canary"))
+        self.assertEquals(x.prop, "canary")
         self.assertTrue(X.prop.delete(x))
         self.assertIsNone(self.redis.get(key))
+        self.assertIs(x.prop, null)
         self.assertFalse(X.prop.delete(x))
+
+    def test_expire_nonzero(self):
+        class X:
+            redis = self.redis
+            prop = Property("p")
+            key = "xkey"
+
+        x = X()
+        key = X.prop.key(x)
+
+        self.redis.set(key, pickle.dumps("canary"))
+        self.assertEquals(x.prop, "canary")
+        self.assertLess(self.redis.ttl(key), 0)
+        self.assertTrue(X.prop.expire(x, 1.5))
+        self.assertGreater(self.redis.ttl(key), 0)
+        time.sleep(1.5)
+        self.assertIsNone(self.redis.get(key))
+        self.assertIs(X.prop.fetch(x), null)
+
+    def test_expire_zero(self):
+        class X:
+            redis = self.redis
+            prop = Property("p")
+            key = "xkey"
+
+        x = X()
+        key = X.prop.key(x)
+
+        self.redis.set(key, pickle.dumps("canary"))
+        self.assertEquals(x.prop, "canary")
+        self.assertLess(self.redis.ttl(key), 0)
+        self.assertTrue(X.prop.expire(x, 0))
+        self.assertLess(self.redis.ttl(key), 0)
+        self.assertIs(x.prop, null)
 
     def test_exists(self):
         class X:

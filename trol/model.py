@@ -119,6 +119,15 @@ class Model(metaclass=ModelType):
     def redis(self, redis):
         self._redis = redis
 
+    def _properties(self, *propnames):
+        if propnames:
+            props = list()
+            for propname in propnames:
+                props.append(self._trol_properties[propname])
+            return props
+        else:
+            return self._trol_properties.values()
+
     def invalidate(self, *propnames):
         """Mark properties in this model as invalid and requiring a fetch
 
@@ -126,14 +135,7 @@ class Model(metaclass=ModelType):
             *propnames (list[str]): The attribute nanes of properties which should be invalidated.
                 If none are provided, the default is to invalidate all propertoes in the model.
         """
-        if propnames:
-            props = list()
-            for propname in propnames:
-                props.append(self._trol_properties[propname])
-        else:
-            props = self._trol_properties.values()
-
-        for prop in props:
+        for prop in self._properties(*propnames):
             prop.invalidate(self)
 
     def commit(self, *propnames):
@@ -143,15 +145,8 @@ class Model(metaclass=ModelType):
             *propnames (list[str]): The attribute nanes of properties which should be committed.
                 If none are provided, the default is to commits all propertoes in the model.
         """
-        if propnames:
-            props = list()
-            for propname in propnames:
-                props.append(self._trol_properties[propname])
-        else:
-            props = self._trol_properties.values()
-
         mappings = dict()
-        for prop in props:
+        for prop in self._properties(*propnames):
             value = prop.value(self)
             if value is not null:
                 mappings[prop.key(self)] = prop.serialize(value)
@@ -163,14 +158,9 @@ class Model(metaclass=ModelType):
 
         Args:
             *propnames (list[str]): The attribute nanes of properties which should be deleted.
-                If none are provided, the default is to delted all propertoes in the model.
+                If none are provided, the default is to deleted all properties in the model.
         """
-        if propnames:
-            props = list()
-            for propname in propnames:
-                props.append(self._trol_properties[propname])
-        else:
-            props = self._trol_properties.values()
+        props = self._properties(*propnames)
 
         keys = []
         for prop in props:
@@ -226,6 +216,25 @@ class Model(metaclass=ModelType):
         if commits:
             self.commit(*commits)
 
+    def expire(self, ttl=None, **kwargs):
+        """Sets the expiration TTL on specified keys or a common TTL on all keys.
+
+        If both common TTL and property TTL are specified, the property TTL takes precidence. If
+        neither are specified the call is a no-op.
+
+        Args:
+            ttl (float): TTL to apply to all keys.
+            **kwargs (dict[str, float]): Key value pairs where the key is the property name and
+                value is the desired TTL in seconds. Expiration times will be rounded to the nearest
+                millisecond.
+        """
+        if ttl is not None:
+            for propname in self._trol_properties.keys():
+                kwargs.setdefault(propname, ttl)
+
+        for propname, value in kwargs.items():
+            prop = self._trol_properties[propname]
+            prop.expire(self, value)
 
 _seperator = b'\xfe'
 _indicator = b'\xfc'

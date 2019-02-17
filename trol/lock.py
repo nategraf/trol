@@ -19,9 +19,9 @@ class Lock:
     .. _redis.Lock: https://github.com/andymccurdy/redis-py/blob/master/redis/lock.py
 
     TODO: Lock currently only works when bound to an object, and not dirctly from the Database
-    class. Lock should be refactored as a subclass of redis.lock.Lock to allow direct operations
-    (instead of being built during the __get__ access) and/or Database should be refactored to no
-    longer reley janky "class-binding".
+        class. Lock should be refactored as a subclass of redis.lock.Lock to allow direct operations
+        (instead of being built during the __get__ access) and/or Database should be refactored to no
+        longer reley janky "class-binding".
 
     >>> import trol
     >>> import time

@@ -1,7 +1,7 @@
-import unittest
-from redis import Redis
 from .common import ensure_redis_is_online
+from redis import Redis
 from trol import Model, ModelType, Property, null
+import unittest
 
 
 class Alpha(Model):
@@ -161,6 +161,40 @@ class OnlineModelTests(unittest.TestCase):
         self.assertEquals(X.redis.get("X:xyz:2").decode('utf-8'),  "canary")
         self.assertEquals(X.redis.get("X:xyz:three").decode('utf-8'), '42')
         self.assertIsNone(X.redis.get("X:xyz:four"))
+
+    def test_expire(self):
+        x = X("xyz")
+
+        x.one = b'\xDE\xAD\xBE\xEF'
+        x.two = "canary"
+        x.three = 42
+        x.four = 3.14
+        x.commit()
+
+        x.expire()
+        self.assertEqual(X.redis.ttl("X:xyz:one"), -1)
+        self.assertEqual(X.redis.ttl("X:xyz:2"), -1)
+        self.assertEqual(X.redis.ttl("X:xyz:three"), -1)
+        self.assertEqual(X.redis.ttl("X:xyz:four"), -1)
+
+        x.expire(one=100)
+        self.assertGreater(X.redis.ttl("X:xyz:one"), 50)
+        self.assertEqual(X.redis.ttl("X:xyz:2"), -1)
+        self.assertEqual(X.redis.ttl("X:xyz:three"), -1)
+        self.assertEqual(X.redis.ttl("X:xyz:four"), -1)
+
+        x.expire(100)
+        self.assertGreater(X.redis.ttl("X:xyz:one"), 50)
+        self.assertGreater(X.redis.ttl("X:xyz:2"), 50)
+        self.assertGreater(X.redis.ttl("X:xyz:three"), 50)
+        self.assertGreater(X.redis.ttl("X:xyz:four"), 50)
+
+        x.expire(100, two=10)
+        self.assertGreater(X.redis.ttl("X:xyz:one"), 50)
+        self.assertLess(X.redis.ttl("X:xyz:2"), 50)
+        self.assertGreater(X.redis.ttl("X:xyz:2"), 0)
+        self.assertGreater(X.redis.ttl("X:xyz:three"), 50)
+        self.assertGreater(X.redis.ttl("X:xyz:four"), 50)
 
     def test_exists(self):
         x = X("xyz")

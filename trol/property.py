@@ -134,11 +134,32 @@ class Property:
             obj (object): This property's holder
 
         Returns:
-            bool: True if the delete transaction was successful. False otherwise
+            bool: True if a the key was deleted. False if it didn't exist.
         """
-        ok = obj.redis.delete(self.key(obj))
-        if ok:
-            self.set(obj, None)
+        count = obj.redis.delete(self.key(obj))
+        self.set(obj, null)
+        return bool(count)
+
+    def expire(self, obj, ttl):
+        """Sets expiration on the ket of this property in Redis
+
+        NOTE:
+            Expiration is not handled internally to trol, so if a key has expired and
+            ``alwaysfetch`` is not set to ``True``, a non-nil value may be returned after
+            expiration.
+
+        Args:
+            obj (object): This property's holder
+            ttl (float): Time to live in seconds. Precisions beyond 1 millisecond will be rounded to
+                the nearest millisecond, which is the minimum resolution of a Redis timeout.
+
+        Returns:
+            bool: True if the expire was set successfully. False otherwise
+        """
+        ttl = round(ttl * 1000)
+        ok = obj.redis.pexpire(self.key(obj), ttl)
+        if not ok or ttl <= 0:
+            self.set(obj, null)
         return ok
 
     def exists(self, obj):
