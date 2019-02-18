@@ -1492,7 +1492,7 @@ class Hash(Collection, collections.MutableMapping):
 
         :rtype: dict
         """
-        return dict([(k, self.deservialize(v)) for (k, v) in self.redis.hgetall(self.key)])
+        return dict([(k, self.deserialize(v)) for (k, v) in self.redis.hgetall(self.key)])
 
     def hvals(self):
         """
