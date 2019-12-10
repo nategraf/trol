@@ -1545,7 +1545,7 @@ class Hash(Collection, collections.MutableMapping):
 
         :param mapping: a dict with keys and values
         """
-        mapping = dict([(k, self.serialize(v)) for (k, v) in mapping])
+        mapping = {k: self.serialize(v) for k, v in mapping.items()}
         return self.redis.hmset(self.key, mapping)
 
     keys = hkeys
