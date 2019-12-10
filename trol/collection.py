@@ -1440,7 +1440,7 @@ class Hash(Collection, collections.MutableMapping):
 
     def _set_dict(self, new_dict):
         self.clear()
-        self.update(new_dict)
+        self.hmset(new_dict)
 
     def hlen(self):
         """Returns the number of elements in the Hash.
@@ -1545,8 +1545,13 @@ class Hash(Collection, collections.MutableMapping):
 
         :param mapping: a dict with keys and values
         """
+        if not mapping:
+            return True
         mapping = {k: self.serialize(v) for k, v in mapping.items()}
         return self.redis.hmset(self.key, mapping)
+
+    def update(self, __m, **kwargs):
+        return self.hmset(dict(__m, **kwargs))
 
     keys = hkeys
     values = hvals
