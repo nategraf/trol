@@ -30,7 +30,7 @@ class ModelType(type):
             cls._trol_collections.update(getattr(base, '_trol_collections', {}))
             cls._trol_locks.update(getattr(base, '_trol_locks', {}))
 
-        for attrname, attr in cls.__dict__.items():
+        for attrname, attr in _dict.items():
             if isinstance(attr, Property):
                 cls._trol_properties[attrname] = attr
             elif isinstance(attr, Collection):
