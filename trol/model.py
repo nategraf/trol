@@ -20,10 +20,15 @@ class ModelType(type):
     This type embeds a dict of :obj:`Collection` which tracks any collections assigned at class load
     It will assign the names to any collections which did not have their names assigned
     """
-    def __init__(cls, *args, **kwargs):
+    def __init__(cls, name, bases, _dict):
         cls._trol_properties = dict()
         cls._trol_collections = dict()
         cls._trol_locks = dict()
+
+        for base in bases:  # inherit properties from superclass
+            cls._trol_properties.update(getattr(base, '_trol_properties', {}))
+            cls._trol_collections.update(getattr(base, '_trol_collections', {}))
+            cls._trol_locks.update(getattr(base, '_trol_locks', {}))
 
         for attrname, attr in cls.__dict__.items():
             if isinstance(attr, Property):
@@ -40,7 +45,7 @@ class ModelType(type):
 
         _all_models[cls.__name__] = cls
 
-        super().__init__(*args, **kwargs)
+        super().__init__(name, bases, _dict)
 
 
 class Model(metaclass=ModelType):
