@@ -252,6 +252,8 @@ class Set(Collection):
         >>> s.clear()
 
         """
+        if not values:
+            return
         values = [self.serialize(v) for v in _parse_values(values)]
         return self.redis.sadd(self.key, *values)
 
