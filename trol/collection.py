@@ -822,7 +822,7 @@ class List(Collection):
 
         :param iterable: an iterable objects.
         """
-        self.rpush(*[self.serialize(e) for e in iterable])
+        self.rpush(*iterable)
 
     def count(self, value):
         """
