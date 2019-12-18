@@ -253,7 +253,7 @@ class Set(Collection):
 
         """
         if not values:
-            return
+            return 0
         values = [self.serialize(v) for v in _parse_values(values)]
         return self.redis.sadd(self.key, *values)
 
