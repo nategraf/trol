@@ -1502,15 +1502,17 @@ class Hash(Collection, collections.MutableMapping):
         """
         return [self.deserialize(v) for v in self.redis.hvals(self.key)]
 
-    def hget(self, field):
+    def hget(self, field, default=None, raise_error=False):
         """
         Returns the value stored in the field, None if the field doesn't exist.
         """
         value = self.redis.hget(self.key, field)
-        if value is None:
-            return None
-        else:
+        if value is not None:
             return self.deserialize(value)
+        elif raise_error:
+            raise KeyError("%s not found" % field)
+        else:
+            return default
 
     def hexists(self, field):
         """
@@ -1553,10 +1555,15 @@ class Hash(Collection, collections.MutableMapping):
     def update(self, __m, **kwargs):
         return self.hmset(dict(__m, **kwargs))
 
+    def get(self, item, default=None):
+        return self.hget(item, default)
+
+    def __getitem__(self, item):
+        return self.hget(field, raise_error=True)
+
     keys = hkeys
     values = hvals
     _get_dict = hgetall
-    __getitem__ = hget
     __setitem__ = hset
     __delitem__ = hdel
     __len__ = hlen
