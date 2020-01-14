@@ -1555,16 +1555,14 @@ class Hash(Collection, collections.MutableMapping):
     def update(self, __m, **kwargs):
         return self.hmset(dict(__m, **kwargs))
 
-    def get(self, item, default=None):
-        return self.hget(item, default)
-
     def __getitem__(self, item):
-        return self.hget(field, raise_error=True)
+        return self.hget(item, raise_error=True)
 
     keys = hkeys
     values = hvals
     _get_dict = hgetall
     __setitem__ = hset
+    get = hget
     __delitem__ = hdel
     __len__ = hlen
     __contains__ = hexists
