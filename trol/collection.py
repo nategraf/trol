@@ -3,11 +3,11 @@
 """Collections which proxy access to Redis storage
 
 This file is Copyright (c) 2010 Tim Medina
-Licenced under the MIT License availible in the root of the RTOL source repo
-It has been modifed to hit the overal model of RTOL, but is largely the same externally
+Licenced under the MIT License availible in the root of the trol source repo
+It has been modifed to hit the overal model of trol, but is largely the same externally
 Thanks to the guys at Redisco for the great work! https://github.com/kiddouk/redisco
 
-Here are the modifications from the origonal Redisco conatainers:
+Here are some of the modifications from the origonal Redisco conatainers:
     * Values are serialized and deserialized allowing more arbitrary objects to be stored
     * Comparison operations do not trigger network transfer of container members
     * Set copy does not tigger network transfer of set members
@@ -15,7 +15,7 @@ Here are the modifications from the origonal Redisco conatainers:
     * Some functions now use a "scratch-pad" in redis to avoid transfering full collections
     * The ``db`` attribute has been renamed to ``redis`` to match other places in trol
     * There is no default expire time
-    * A redis connection must be specified on construction, unless accessed through a Model
+    * A Redis connection must be specified on construction, unless accessed through a Model
     * There is no support for TypedList or NonPersitentList
 
 Unlike properties, collections call out to Redis on every transaction by default
@@ -32,11 +32,9 @@ import collections
 import pickle
 from . import Serializer, Deserializer
 
-
-# Use a guid to make sure that no wil define a colliding key by accident
+# Use a guid to make sure that no one will define a colliding key by accident
 # Every thread gets their own scratch key to make sure there are not threading errors
 _scratch_guid = "c05f145e-a1a8-4742-918c-e01d6d40b02a"
-
 
 def _scratch_key():
     return "scratch:{}:{}".format(_scratch_guid, threading.get_ident())
@@ -241,11 +239,13 @@ class Set(Collection):
         :rtype: integer representing the number of value added to the set.
 
         >>> s = trol.Set('test', redis)
-        >>> s.add([1, 2, 3])
+        >>> s.sadd(1, 2, 3)
         3
-        >>> s.add([4])
+        >>> s.sadd(4)
         1
-        >>> s.add([4])
+        >>> s.sadd(4)
+        0
+        >>> s.sadd()
         0
         >>> s.members == {1, 2, 3, 4}
         True
@@ -253,6 +253,9 @@ class Set(Collection):
 
         """
         values = [self.serialize(v) for v in _parse_values(values)]
+        if not values:
+            return 0
+
         return self.redis.sadd(self.key, *values)
 
     def srem(self, *values):
@@ -789,10 +792,20 @@ class List(Collection):
         >>> l = trol.List('test', redis)
         >>> l.lpush(['a', 'b'])
         2
+        >>> l.lpush(['c', 'd'])
+        4
+        >>> l.members
+        ['d', 'c', 'b', 'a']
+        >>> l.lpush()
+        4
         >>> l.clear()
 
         """
         values = [self.serialize(v) for v in _parse_values(values)]
+
+        if not values:
+            return len(self)
+
         return self.redis.lpush(self.key, *values)
 
     def rpush(self, *values):
@@ -803,17 +816,23 @@ class List(Collection):
         :rtype: long representing the size of the list.
 
         >>> l = trol.List('test', redis)
-        >>> l.lpush(['a', 'b'])
+        >>> l.rpush(['a', 'b'])
         2
         >>> l.rpush(['c', 'd'])
         4
         >>> l.members
-        ['b', 'a', 'c', 'd']
+        ['a', 'b', 'c', 'd']
+        >>> l.rpush()
+        4
         >>> l.clear()
 
         """
 
         values = [self.serialize(v) for v in _parse_values(values)]
+
+        if not values:
+            return len(self)
+
         return self.redis.rpush(self.key, *values)
 
     def extend(self, iterable):
@@ -821,14 +840,35 @@ class List(Collection):
         Extend list by appending elements from the iterable.
 
         :param iterable: an iterable objects.
+
+        >>> l = trol.List('test', redis)
+        >>> l.extend(['a', 'b'])
+        >>> l.members
+        ['a', 'b']
+        >>> l.extend(['c', 'd'])
+        >>> l.members
+        ['a', 'b', 'c', 'd']
+        >>> l.clear()
+
         """
-        self.rpush(*[self.serialize(e) for e in iterable])
+        self.rpush(*iterable)
 
     def count(self, value):
         """
         Return number of occurrences of value.
 
         :param value: a value tha *may* be contained in the list
+
+        >>> l = trol.List('test', redis)
+        >>> l.extend(['duck', 'duck', 'duck', 'goose'])
+        >>> l.count("duck")
+        3
+        >>> l.count("goose")
+        1
+        >>> l.count("possum")
+        0
+        >>> l.clear()
+
         """
         return self.members.count(value)
 
@@ -837,6 +877,19 @@ class List(Collection):
         Pop the first object from the left.
 
         :return: the popped value.
+
+        >>> l = trol.List('test', redis)
+        >>> l.extend(['a', 'b', 'c'])
+        >>> l.lpop()
+        'a'
+        >>> l.lpop()
+        'b'
+        >>> l.members
+        ['c']
+        >>> l.lpop()
+        'c'
+        >>> l.lpop() is None
+        True
 
         """
         value = self.redis.lpop(self.key)
@@ -850,6 +903,20 @@ class List(Collection):
         Pop the first object from the right.
 
         :return: the popped value.
+
+        >>> l = trol.List('test', redis)
+        >>> l.extend(['a', 'b', 'c'])
+        >>> l.rpop()
+        'c'
+        >>> l.rpop()
+        'b'
+        >>> l.members
+        ['a']
+        >>> l.rpop()
+        'a'
+        >>> l.rpop() is None
+        True
+
         """
         value = self.redis.rpop(self.key)
         if value is None:
@@ -866,8 +933,7 @@ class List(Collection):
         :return: the popped (and pushed) value
 
         >>> l = trol.List('list1', redis)
-        >>> l.push(['a', 'b', 'c'])
-        3
+        >>> l.extend(['a', 'b', 'c'])
         >>> l.rpoplpush('list2')
         'c'
         >>> l2 = trol.List('list2', redis)
@@ -887,25 +953,47 @@ class List(Collection):
         """
         Remove first occurrence of value.
 
-        :return: 1 if the value has been removed, 0 otherwise
+        :return: the number of removed elements
+
+        >>> l = trol.List('test', redis)
+        >>> l.extend(['duck', 'duck', 'duck', 'goose'])
+        >>> l.lrem("duck")
+        1
+        >>> l.lrem("duck", 3)
+        2
+        >>> l.members
+        ['goose']
+        >>> l.clear()
+
         """
-        return self.redis.lrem(self.key, value, num)
+        return self.redis.lrem(self.key, num, self.serialize(value))
 
     def reverse(self):
         """
         Reverse the list in place.
 
         ..NOTE:
-            This command must make two network calls, transfering the list each way
+            This command must make two network calls, transferring the list each way
             It is still atomic though
 
         :return: None
+
+        >>> l = trol.List('test', redis)
+        >>> l.extend(['a', 'b', 'c'])
+        >>> l.members
+        ['a', 'b', 'c']
+        >>> l.reverse()
+        >>> l.members
+        ['c', 'b', 'a']
+        >>> l.clear()
+
         """
         def reversefn(pipe):
             values = pipe.lrange(self.key, 0, -1)
             pipe.multi()
             pipe.delete(self.key)
-            pipe.lpush(self.key, values)
+            if values:
+                pipe.lpush(self.key, *values)
 
         self.redis.transaction(reversefn, self.key)
 
@@ -914,12 +1002,24 @@ class List(Collection):
 
         ..WARNING:
             If destination key already contains a value, it clears it before copying.
+
+        :return: a list object pointing to the copy
+
+        >>> l = trol.List('test', redis)
+        >>> l.extend(['a', 'b', 'c'])
+        >>> copy = l.copy('copy')
+        >>> copy.members
+        ['a', 'b', 'c']
+        >>> l.clear()
+        >>> copy.clear()
+
         """
         def copyfn(pipe):
             values = pipe.lrange(self.key, 0, -1)
             pipe.multi()
             pipe.delete(key)
-            pipe.rpush(key, values)
+            if values:
+                pipe.rpush(key, *values)
 
         self.redis.transaction(copyfn, self.key, key)
         copy = List(key, self.redis)
@@ -927,9 +1027,18 @@ class List(Collection):
 
     def ltrim(self, start, end):
         """
-        Trim the list from start to end.
+        Trim the list from such that it only includes elements from start to end inclusive.
 
-        :return: None
+        :return: True if the operation succeeded
+
+        >>> l = trol.List('test', redis)
+        >>> l.extend(['a', 'b', 'c'])
+        >>> l.ltrim(0, 1)
+        True
+        >>> l.members
+        ['a', 'b']
+        >>> l.clear()
+
         """
         return self.redis.ltrim(self.key, start, end)
 
@@ -939,6 +1048,12 @@ class List(Collection):
 
         :param idx: the index to fetch the value.
         :return: the value or None if out of range.
+
+        >>> l = trol.List('test', redis)
+        >>> l.extend(['a', 'b', 'c'])
+        >>> l.lindex(1)
+        'b'
+        >>> l.clear()
 
         """
         value = self.redis.lindex(self.key, idx)
@@ -1129,7 +1244,7 @@ class SortedSet(Collection):
         :param limit: limit the result to *n* elements
         :param offset: Skip the first *n* elements
 
-        >>> s = trol.SortedSet('foo', redis)
+        >>> s = trol.SortedSet('test', redis)
         >>> s.add('a', 10)
         1
         >>> s.add('b', 20)
@@ -1153,7 +1268,7 @@ class SortedSet(Collection):
         :param members: a list of item or a single item
         :param score: the score the assign to the item(s)
 
-        >>> s = trol.SortedSet('foo', redis)
+        >>> s = trol.SortedSet('test', redis)
         >>> s.add('a')
         1
         >>> s.zscore('a')
@@ -1183,7 +1298,7 @@ class SortedSet(Collection):
         :return: True if **at least one** value is successfully
                  removed, False otherwise
 
-        >>> s = trol.SortedSet('foo', redis)
+        >>> s = trol.SortedSet('test', redis)
         >>> s.add('a', 10)
         1
         >>> s.zrem('a')
@@ -1204,7 +1319,7 @@ class SortedSet(Collection):
         :param att: the member to increment
         :returns: the new score of the member
 
-        >>> s = trol.SortedSet('foo', redis)
+        >>> s = trol.SortedSet('test', redis)
         >>> s.add('a', 10)
         1
         >>> s.zincrby(10, 'a')
@@ -1218,7 +1333,7 @@ class SortedSet(Collection):
         """
         Returns the ranking in reverse order for the member
 
-        >>> s = trol.SortedSet('foo', redis)
+        >>> s = trol.SortedSet('test', redis)
         >>> s.add('a', 10)
         1
         >>> s.add('b', 20)
@@ -1238,7 +1353,7 @@ class SortedSet(Collection):
         :param withscore: True if the score of the elements should
                           also be returned
 
-        >>> s = trol.SortedSet('foo', redis)
+        >>> s = trol.SortedSet('test', redis)
         >>> s.add('a', 10)
         1
         >>> s.add('b', 20)
@@ -1262,7 +1377,7 @@ class SortedSet(Collection):
         Returns the range of items included between ``start`` and ``stop``
         in reverse order (from high to low)
 
-        >>> s = trol.SortedSet('foo', redis)
+        >>> s = trol.SortedSet('test', redis)
         >>> s.add('a', 10)
         1
         >>> s.add('b', 20)
@@ -1280,7 +1395,7 @@ class SortedSet(Collection):
         """
         Returns the range of elements included between the scores (min and max)
 
-        >>> s = trol.SortedSet('foo', redis)
+        >>> s = trol.SortedSet('test', redis)
         >>> s.add('a', 10)
         1
         >>> s.add('b', 20)
@@ -1298,7 +1413,7 @@ class SortedSet(Collection):
         """
         Returns the range of elements included between the scores (min and max)
 
-        >>> s = trol.SortedSet('foo', redis)
+        >>> s = trol.SortedSet('test', redis)
         >>> s.add('a', 10)
         1
         >>> s.add('b', 20)
@@ -1316,7 +1431,7 @@ class SortedSet(Collection):
         """
         Returns the cardinality of the SortedSet.
 
-        >>> s = trol.SortedSet('foo', redis)
+        >>> s = trol.SortedSet('test', redis)
         >>> s.add("a", 1)
         1
         >>> s.add("b", 2)
@@ -1334,7 +1449,7 @@ class SortedSet(Collection):
         """
         Return the score of an element
 
-        >>> s = trol.SortedSet('foo', redis)
+        >>> s = trol.SortedSet('test', redis)
         >>> s.add("a", 10)
         1
         >>> s.score("a")
@@ -1351,7 +1466,7 @@ class SortedSet(Collection):
 
         :return: the number of item deleted
 
-        >>> s = trol.SortedSet('foo', redis)
+        >>> s = trol.SortedSet('test', redis)
         >>> s.add("a", 10)
         1
         >>> s.add("b", 20)
@@ -1374,7 +1489,7 @@ class SortedSet(Collection):
 
         :returns: the number of items deleted.
 
-        >>> s = trol.SortedSet('foo', redis)
+        >>> s = trol.SortedSet('test', redis)
         >>> s.add("a", 10)
         1
         >>> s.add("b", 20)
@@ -1395,7 +1510,7 @@ class SortedSet(Collection):
         """
         Returns the rank of the element.
 
-        >>> s = trol.SortedSet('foo', redis)
+        >>> s = trol.SortedSet('test', redis)
         >>> s.add({'a': 30, 'b':20, 'c':10})
         3
         >>> s.zrank('b')
@@ -1421,12 +1536,247 @@ class SortedSet(Collection):
 
 
 class Hash(Collection, collections.MutableMapping):
-    """
-    This class represent a hash (i.e. dict) object as seen in redis.
-    """
+    """This class represent a hash (i.e. dict) object as seen in Redis."""
 
-    def __iter__(self):
-        return self.hgetall().__iter__()
+    def __init__(self, *args, field_typ=str, field_serializer=None, field_deserializer=None, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.serialize_field = field_serializer or Serializer(field_typ)
+        self.deserialize_field = field_serializer or Deserializer(field_typ)
+
+    def hlen(self):
+        """Returns the number of elements in the Hash.
+
+        :return: the number of elements in the hash.
+
+        >>> h = trol.Hash('test', redis)
+        >>> h.update(a=1, b=2, c=3)
+        >>> h.hlen()
+        3
+        >>> h.clear()
+
+        """
+        return self.redis.hlen(self.key)
+
+    def hset(self, field, value):
+        """
+        Set ``field`` in the Hash to ``value``.
+
+        :returns: 1 if ``field`` is a new value and 0 if it was updated.
+
+        >>> h = trol.Hash('test', redis)
+        >>> h.hset("bar", "foo")
+        1
+        >>> h.hset("bar", "baz")
+        0
+        >>> h.dict
+        {'bar': 'baz'}
+        >>> h.clear()
+
+        """
+        return self.redis.hset(self.key, self.serialize_field(field), self.serialize(value))
+
+    def hdel(self, *fields):
+        """
+        Delete one or more hash fields by key.
+
+        :param fields: on or more fields to remove.
+        :return: the number of fields that were removed
+
+        >>> h = trol.Hash('test', redis)
+        >>> h.update(a=1, b=2, c=3)
+        >>> h.hdel("a", "b")
+        2
+        >>> h.dict
+        {'c': 3}
+        >>> h.clear()
+
+        """
+        return self.redis.hdel(self.key, *(self.serialize_field(field) for field in fields))
+
+    def hkeys(self):
+        """
+        Returns all fields name in the Hash
+
+        >>> h = trol.Hash('test', redis)
+        >>> h.update(a=1, b=2, c=3)
+        >>> h.hkeys()
+        ['a', 'b', 'c']
+        >>> h.clear()
+
+        """
+        return [self.deserialize_field(field) for field in self.redis.hkeys(self.key)]
+
+    def hgetall(self):
+        """
+        Returns all the fields and values in the Hash.
+
+        :rtype: dict
+
+        >>> h = trol.Hash('test', redis)
+        >>> h.update(a=1, b=2, c=3)
+        >>> h.dict == {"a": 1, "b": 2, "c": 3}
+        True
+        >>> h.clear()
+
+        """
+        return {self.deserialize_field(k): self.deserialize(v) for k, v in self.redis.hgetall(self.key).items()}
+
+    def hvals(self):
+        """
+        Returns all the values in the Hash
+
+        :rtype: list
+
+        >>> h = trol.Hash('test', redis)
+        >>> h.update(a=1, b=2, c=3)
+        >>> h.hvals()
+        [1, 2, 3]
+        >>> h.clear()
+
+        """
+        return [self.deserialize(v) for v in self.redis.hvals(self.key)]
+
+    def hget(self, field, default=None, raise_error=False):
+        """
+        Returns the value stored in the field, or the default value unless ``raise_error`` is True.
+
+        :param field: the bytes or string field key to look up.
+        :param default: the value to return if the field is not found.
+        :param raise_error: whether to raise a ``KeyError`` if the key is not found.
+
+        >>> h = trol.Hash('test', redis)
+        >>> h.update(a=1, b=2, c=3)
+        >>> h.hget("b")
+        2
+        >>> h.hget("d") is None
+        True
+        >>> h.hget("d", default=0)
+        0
+        >>> h.hget("d", raise_error=True)
+        Traceback (most recent call last):
+        ...
+        KeyError: 'd'
+        >>> h.clear()
+
+        """
+        value = self.redis.hget(self.key, self.serialize_field(field))
+        if value is not None:
+            return self.deserialize(value)
+        elif raise_error:
+            raise KeyError(field)
+        else:
+            return default
+
+    def hmget(self, fields, default=None, raise_error=False):
+        """
+        Returns the values stored in the fields, or the default value unless ``raise_error`` is True.
+
+        :param fields: an iterable of byte or string fields to retrieve.
+        :param default: the value to return if the field is not found.
+        :param raise_error: whether to raise a ``KeyError`` if the key is not found.
+
+        >>> h = trol.Hash('test', redis)
+        >>> h.update(a=1, b=2, c=3)
+        >>> h.hmget(["a", "b"])
+        [1, 2]
+        >>> h.hmget(["c", "d"])
+        [3, None]
+        >>> h.hmget(["c", "d"], default=0)
+        [3, 0]
+        >>> h.hmget(["c", "d"], raise_error=True)
+        Traceback (most recent call last):
+        ...
+        KeyError: 'd'
+        >>> h.clear()
+
+        """
+        def deserialize(field, value):
+            if value is not None:
+                return self.deserialize(value)
+            elif raise_error:
+                raise KeyError(field)
+            else:
+                return default
+
+        return [deserialize(k, v) for k, v in zip(fields, self.redis.hmget(self.key, *(self.serialize_field(field) for field in fields)))]
+
+    def hexists(self, field):
+        """
+        Returns ``True`` if the field exists, ``False`` otherwise.
+
+        >>> h = trol.Hash('test', redis)
+        >>> h.update(a=1, b=2, c=3)
+        >>> h.hexists("a")
+        True
+        >>> h.hexists("d")
+        False
+        >>> h.clear()
+
+        """
+        return self.redis.hexists(self.key, self.serialize_field(field))
+
+    def hincrby(self, field, increment=1):
+        """
+        Increment the value of the field.
+        :returns: the value of the field after incrementation
+
+        >>> h = trol.Hash('test', redis)
+        >>> h.hincrby("key", 10)
+        10
+        >>> h.hincrby("key", 2)
+        12
+        >>> h.clear()
+
+        """
+        return self.redis.hincrby(self.key, self.serialize_field(field), increment)
+
+    def hmset(self, mapping):
+        """
+        Sets or updates the fields with their corresponding values.
+
+        :param mapping: a dict with keys and values
+        :return: True if the operation succeeded
+
+        >>> h = trol.Hash('test', redis)
+        >>> h.hmset({"a": 1, "b": 2, "c": 3})
+        True
+        >>> h.dict == {"a": 1, "b": 2, "c": 3}
+        True
+        >>> h.hmset({})
+        True
+        >>> h.dict == {"a": 1, "b": 2, "c": 3}
+        True
+        >>> h.clear()
+
+        """
+        if not mapping:
+            return True
+
+        mapping = {k: self.serialize(v) for k, v in mapping.items()}
+        return self.redis.hmset(self.key, mapping)
+
+    def update(self, *args, **kwargs):
+        """
+        Sets or updates the fields with their corresponding values, accepting args like the native python dict.update
+
+        :return: None
+
+        >>> h = trol.Hash('test', redis)
+        >>> h.update({"a": 1, "b": 2, "c": 3})
+        >>> h.dict == {"a": 1, "b": 2, "c": 3}
+        True
+        >>> h.update(d=4)
+        >>> h["d"]
+        4
+        >>> h.update([("e", 5)])
+        >>> h["e"]
+        5
+        >>> h.clear()
+
+        """
+
+        self.hmset(dict(*args, **kwargs))
 
     def __repr__(self):
         """Gets the string representation of this object
@@ -1438,132 +1788,27 @@ class Hash(Collection, collections.MutableMapping):
         """
         return "<%s '%s'>" % (self.__class__.__name__, self.key)
 
-    def _set_dict(self, new_dict):
-        self.clear()
-        self.hmset(new_dict)
-
-    def hlen(self):
-        """Returns the number of elements in the Hash.
-        """
-        return self.redis.hlen(self.key)
-
-    def hset(self, member, value):
-        """
-        Set ``member`` in the Hash at ``value``.
-
-        :returns: 1 if member is a new field and the value has been
-                  stored, 0 if the field existed and the value has been
-                  updated.
-
-        >>> h = trol.Hash('foo', redis)
-        >>> h.hset("bar", "value")
-        1
-        >>> h.clear()
-
-        """
-        return self.redis.hset(self.key, member, self.serialize(value))
-
-    def hdel(self, *hkeys):
-        """
-        Delete one or more hash fields by key.
-
-        :param hkeys: on or more fields to remove.
-        :return: the number of fields that were removed
-
-        >>> h = trol.Hash('foo', redis)
-        >>> h.hset("bar", "value")
-        1
-        >>> h.hdel("bar")
-        1
-        >>> h.clear()
-
-        """
-        return self.redis.hdel(self.key, *hkeys)
-
-    def hkeys(self):
-        """
-        Returns all fields name in the Hash
-        """
-        return self.redis.hkeys(self.key)
-
-    def hgetall(self):
-        """
-        Returns all the fields and values in the Hash.
-
-        :rtype: dict
-        """
-        return {k: self.deserialize(v) for k, v in self.redis.hgetall(self.key).items()}
-
-    def hvals(self):
-        """
-        Returns all the values in the Hash
-
-        :rtype: list
-        """
-        return [self.deserialize(v) for v in self.redis.hvals(self.key)]
-
-    def hget(self, field, default=None, raise_error=False):
-        """
-        Returns the value stored in the field, None if the field doesn't exist.
-        """
-        value = self.redis.hget(self.key, field)
-        if value is not None:
-            return self.deserialize(value)
-        elif raise_error:
-            raise KeyError("%s not found" % field)
-        else:
-            return default
-
-    def hexists(self, field):
-        """
-        Returns ``True`` if the field exists, ``False`` otherwise.
-        """
-        return self.redis.hexists(self.key, field)
-
-    def hincrby(self, field, increment=1):
-        """
-        Increment the value of the field.
-        :returns: the value of the field after incrementation
-
-        >>> h = trol.Hash('foo', redis)
-        >>> h.hincrby("bar", 10)
-        10
-        >>> h.hincrby("bar", 2)
-        12
-        >>> h.clear()
-
-        """
-        return self.redis.hincrby(self.key, field, increment)
-
-    def hmget(self, fields):
-        """
-        Returns the values stored in the fields.
-        """
-        return [self.deserialize(v) for v in self.redis.hmget(self.key, fields)]
-
-    def hmset(self, mapping):
-        """
-        Sets or updates the fields with their corresponding values.
-
-        :param mapping: a dict with keys and values
-        """
-        if not mapping:
-            return True
-        mapping = {k: self.serialize(v) for k, v in mapping.items()}
-        return self.redis.hmset(self.key, mapping)
-
-    def update(self, __m, **kwargs):
-        return self.hmset(dict(__m, **kwargs))
+    def __iter__(self):
+        return iter(self.dict)
 
     def __getitem__(self, item):
         return self.hget(item, raise_error=True)
 
+    def _set_dict(self, new_dict):
+        self.clear()
+        self.hmset(new_dict)
+
+    _get_dict = hgetall
+
+    dict = property(_get_dict, _set_dict)
+
+    def items(self):
+        return self.dict.items()
+
     keys = hkeys
     values = hvals
-    _get_dict = hgetall
     get = hget
     __setitem__ = hset
     __delitem__ = hdel
     __len__ = hlen
     __contains__ = hexists
-    dict = property(_get_dict, _set_dict)
