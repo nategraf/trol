@@ -5,7 +5,7 @@ class Lock:
     """Lock provides a Redis-backed distributed lock on a Model or Database instance.
 
     Lock should be a class member of a Model class, and provides a unique lock to each instance of
-    that model. It is essentially a factory class for `redis-py's Lock objects`_ 
+    that model. It is essentially a factory class for `redis-py's Lock objects`_
 
     .. _redis-py's Lock objects: https://redis-py.readthedocs.io/en/latest/#redis.Redis.lock
 
@@ -18,9 +18,9 @@ class Lock:
 
     .. _redis.Lock: https://github.com/andymccurdy/redis-py/blob/master/redis/lock.py
 
-    TODO: Lock currently only works when bound to an object, and not directly from the Database
+    .. TODO:: Lock currently only works when bound to an object, and not directly from the Database
         class. Lock should be refactored as a subclass of redis.lock.Lock to allow direct operations
-        (instead of being built during the __get__ access) and/or Database should be refactored to no
+        (instead of being built during the ``__get__`` access) and/or Database should be refactored to no
         longer rely on janky "class-binding".
 
     >>> import trol

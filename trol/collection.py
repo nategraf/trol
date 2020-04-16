@@ -649,7 +649,7 @@ class Set(Collection):
         Performs an intersection between Sets and return the *RAW* result.
 
         .. NOTE::
-            This function return an actual ``set`` object (from python) and not a ``Set``. See func:``intersection``.
+          This function return an actual ``set`` object (from python) and not a ``Set``. See func:``intersection``.
         """
         return self.redis.sinter([self.key] + [self.key for s in other_sets])
 
@@ -658,7 +658,7 @@ class Set(Collection):
         Performs a union between two sets and returns the *RAW* result.
 
         .. NOTE::
-            This function return an actual ``set`` object (from python) and not a ``Set``.
+          This function return an actual ``set`` object (from python) and not a ``Set``.
         """
         return self.redis.sunion([self.key] + [self.key for s in other_sets])
 
@@ -667,8 +667,8 @@ class Set(Collection):
         Performs a difference between two sets and returns the *RAW* result.
 
         .. NOTE::
-            This function return an actual ``set`` object (from python) and not a ``Set``.
-            See function difference.
+          This function return an actual ``set`` object (from python) and not a ``Set``.
+          See function difference.
 
         """
         return self.redis.sdiff([self.key] + [self.key for s in other_sets])
@@ -972,9 +972,8 @@ class List(Collection):
         """
         Reverse the list in place.
 
-        ..NOTE:
-            This command must make two network calls, transferring the list each way
-            It is still atomic though
+        .. NOTE::
+          This command must make two network calls, transferring the list each way
 
         :return: None
 
@@ -1000,7 +999,7 @@ class List(Collection):
     def copy(self, key):
         """Copy the list to a new list.
 
-        ..WARNING:
+        .. WARNING::
             If destination key already contains a value, it clears it before copying.
 
         :return: a list object pointing to the copy

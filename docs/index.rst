@@ -8,9 +8,6 @@ Welcome to Thin Redis Object Layer's documentation!
 
 **A library for light and predictable python object mappings to Redis**
 
-.. include:: ../README.rst
-     :start-after: include-in-docs-after-this-point
-
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
@@ -22,6 +19,9 @@ Indices and tables
 * :ref:`modindex`
 * :ref:`search`
 
+
+.. include:: ../README.rst
+     :start-after: include-in-docs-after-this-point
 
 Model
 -----
