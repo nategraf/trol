@@ -27,8 +27,10 @@ The second goal of trol is fast and predictable querying. Any python access, fun
 in one or zero network transfers. One result of this is a structure which encourages the dev to create a database where
 eveything is defined in location and uniquely identifieable without searching.
 
-How do I use it?
-----------------
+.. include-in-docs-after-this-point
+
+Getting started
+---------------
 ``pip install trol`` and start defining your schema::
 
   >>> import trol

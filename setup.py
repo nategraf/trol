@@ -31,7 +31,7 @@ setuptools.setup(
 
     long_description=readme(),
     long_description_content_type="text/x-rst",
-    keywords=['redis', 'object', 'mapper', 'thin', 'rom', 'redisco', 'cache'], 
+    keywords=['redis', 'object', 'mapper', 'thin', 'rom', 'redisco', 'cache'],
 
     install_requires=['redis'],
     python_requires='>=3',
