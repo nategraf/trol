@@ -1440,7 +1440,7 @@ class Hash(Collection, collections.MutableMapping):
 
     def _set_dict(self, new_dict):
         self.clear()
-        self.update(new_dict)
+        self.hmset(new_dict)
 
     def hlen(self):
         """Returns the number of elements in the Hash.
@@ -1492,7 +1492,7 @@ class Hash(Collection, collections.MutableMapping):
 
         :rtype: dict
         """
-        return dict([(k, self.deserialize(v)) for (k, v) in self.redis.hgetall(self.key)])
+        return {k: self.deserialize(v) for k, v in self.redis.hgetall(self.key).items()}
 
     def hvals(self):
         """
@@ -1502,15 +1502,17 @@ class Hash(Collection, collections.MutableMapping):
         """
         return [self.deserialize(v) for v in self.redis.hvals(self.key)]
 
-    def hget(self, field):
+    def hget(self, field, default=None, raise_error=False):
         """
         Returns the value stored in the field, None if the field doesn't exist.
         """
         value = self.redis.hget(self.key, field)
-        if value is None:
-            return None
-        else:
+        if value is not None:
             return self.deserialize(value)
+        elif raise_error:
+            raise KeyError("%s not found" % field)
+        else:
+            return default
 
     def hexists(self, field):
         """
@@ -1545,13 +1547,21 @@ class Hash(Collection, collections.MutableMapping):
 
         :param mapping: a dict with keys and values
         """
-        mapping = dict([(k, self.serialize(v)) for (k, v) in mapping])
+        if not mapping:
+            return True
+        mapping = {k: self.serialize(v) for k, v in mapping.items()}
         return self.redis.hmset(self.key, mapping)
+
+    def update(self, __m, **kwargs):
+        return self.hmset(dict(__m, **kwargs))
+
+    def __getitem__(self, item):
+        return self.hget(item, raise_error=True)
 
     keys = hkeys
     values = hvals
     _get_dict = hgetall
-    __getitem__ = hget
+    get = hget
     __setitem__ = hset
     __delitem__ = hdel
     __len__ = hlen
