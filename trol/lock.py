@@ -9,19 +9,19 @@ class Lock:
 
     .. _redis-py's Lock objects: https://redis-py.readthedocs.io/en/latest/#redis.Redis.lock
 
-    Attributes: timeout (float or None): Maximum time the lock can be held before it expires,
-    releasing it automatically.  When set to None, the lock never expired.  sleep (float): Time, in
-    seconds, to sleep between each attempt to acquire the lock.  blocking_timeout (float or None):
-    Maximum time to spend acquiring the lock.  lock_class (type or None): Class used to construct
-    the lock. See `redis.Lock`_ for the canonical version.  thread_local (bool): Whether to use
-    threadlocal storage when to store the reservation token.
+    Attributes:
+        timeout (float or None): Maximum time the lock can be held before it expires, releasing it automatically. When set to None, the lock never expired.
+        sleep (float): Time, in seconds, to sleep between each attempt to acquire the lock.
+        blocking_timeout (float or None): Maximum time to spend acquiring the lock.
+        lock_class (type or None): Class used to construct the lock. See `redis.Lock`_ for the canonical version.
+        thread_local (bool): Whether to use threadlocal storage when to store the reservation token.
 
     .. _redis.Lock: https://github.com/andymccurdy/redis-py/blob/master/redis/lock.py
 
-    TODO: Lock currently only works when bound to an object, and not dirctly from the Database
+    TODO: Lock currently only works when bound to an object, and not directly from the Database
         class. Lock should be refactored as a subclass of redis.lock.Lock to allow direct operations
         (instead of being built during the __get__ access) and/or Database should be refactored to no
-        longer reley janky "class-binding".
+        longer rely on janky "class-binding".
 
     >>> import trol
     >>> import time
@@ -31,23 +31,25 @@ class Lock:
     >>> class Sleepy(trol.Model):
     ...     redis = Redis()
     ...     sleepy_lock = trol.Lock()
+    ...     sleep = time.sleep
     ...
     ...     def __init__(self, id):
     ...         self.id = id
     ...     
     ...     def print(self, t, msg):
     ...         with self.sleepy_lock:
-    ...             time.sleep(t)
+    ...             self.sleep(t)
     ...             print(msg)
     ...
     >>> sleepy = Sleepy('foo')
     >>> Thread(target=sleepy.print, args=(3, "ok, go ahead")).start()
-    >>> sleepy.print(1, "my turn!")
+    >>> Thread(target=sleepy.print, args=(1, "my turn!")).start()
+    >>> time.sleep(5)
     ok, go ahead
     my turn!
 
     Just like with Property, the name of the lock is used to form it's Redis key and can either by
-    specified explicitly in the constructor or infered from the attribute name in a Model.
+    specified explicitly in the constructor or inferred from the attribute name in a Model.
 
     >>> with sleepy.sleepy_lock:
     ...     print(sleepy.redis.keys())
@@ -61,7 +63,7 @@ class Lock:
     def mangle(name):
         """Creates a mangled version of the given name.
 
-        Mangling produces a name unlikely to colide with other attribute names.
+        Mangling produces a name unlikely to collide with other attribute names.
 
         Args:
             name (str): The name which should be mangled
@@ -127,7 +129,7 @@ class Lock:
             obj (object): Model instance for which locking is provided.
 
         Returns:
-            object: Lock of type specificed as lock_class. Probably redis.Lock.
+            object: Lock of type specified as lock_class. Probably redis.Lock.
         """
         lock = obj.redis.lock(
             name=self.key(obj),

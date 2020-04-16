@@ -1,7 +1,5 @@
-from .common import ensure_redis_is_online
-from redis import Redis
+from .common import redis_test_client
 from trol import Property, nil
-import docker
 import pickle
 import time
 import unittest
@@ -46,14 +44,13 @@ class OfflinePropertyTests(unittest.TestCase):
 class OnlinePropertyTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.container_token = ensure_redis_is_online()
-        cls.redis = Redis(host='localhost', port=6379, db=0)
+        cls.redis = redis_test_client()
 
     def setUp(self):
         self.redis.flushall()
 
     def test_self(self):
-        """Make sure the docker container can be booted and redis can be connected to
+        """Make sure the redis server can be booted and be connected to
 
         If this test fails, then the rest surely won't pass
         """

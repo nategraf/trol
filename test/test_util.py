@@ -1,8 +1,6 @@
 import unittest
 import ddt
-import docker
-from .common import ensure_redis_is_online
-from redis import Redis
+from .common import redis_test_client
 from trol import Serializer, Deserializer, Model
 
 
@@ -10,8 +8,7 @@ from trol import Serializer, Deserializer, Model
 class OnlineUtilTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.container_token = ensure_redis_is_online()
-        cls.redis = Redis(host='localhost', port=6379, db=0)
+        cls.redis = redis_test_client()
 
     def setUp(self):
         self.redis.flushall()

@@ -1,5 +1,4 @@
-from .common import ensure_redis_is_online
-from redis import Redis
+from .common import redis_test_client
 from trol import Model, ModelType, Property, nil
 import unittest
 
@@ -45,8 +44,7 @@ class X(Model):
 class OnlineModelTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.container_token = ensure_redis_is_online()
-        X.redis = Redis(host='localhost', port=6379, db=0)
+        X.redis = redis_test_client()
 
     def setUp(self):
         X.redis.flushall()
