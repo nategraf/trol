@@ -103,7 +103,9 @@ class Collection(object):
         """
         Remove the collection from the redis storage
 
-        >>> s = trol.Set('test', redis)
+        :return: None
+
+        >>> s = trol.Set('test_clear', redis)
         >>> s.add('1')
         1
         >>> s.clear()
@@ -118,7 +120,10 @@ class Collection(object):
         """
         Allow the key to expire after ``time`` seconds.
 
-        >>> s = trol.Set('test', redis)
+        :param time: time expressed in seconds.
+        :return: None
+
+        >>> s = trol.Set('test_set_expire', redis)
         >>> s.add("1")
         1
         >>> s.set_expire(1)
@@ -127,8 +132,6 @@ class Collection(object):
         >>> s.members
         set()
 
-        :param time: time expressed in seconds.
-        :rtype: None
         """
         self.redis.expire(self.key, time)
 
@@ -236,9 +239,9 @@ class Set(Collection):
         Add the specified members to the Set.
 
         :param values: a list of values or a simple value.
-        :rtype: integer representing the number of value added to the set.
+        :return: integer representing the number of value added to the set.
 
-        >>> s = trol.Set('test', redis)
+        >>> s = trol.Set('test_sadd', redis)
         >>> s.sadd(1, 2, 3)
         3
         >>> s.sadd(4)
@@ -249,7 +252,6 @@ class Set(Collection):
         0
         >>> s.members == {1, 2, 3, 4}
         True
-        >>> s.clear()
 
         """
         values = [self.serialize(v) for v in _parse_values(values)]
@@ -263,14 +265,13 @@ class Set(Collection):
         Remove the values from the Set if they are present.
 
         :param values: a list of values or a simple value.
-        :rtype: boolean indicating if the values have been removed.
+        :return: boolean indicating if the values have been removed.
 
-        >>> s = trol.Set('test', redis)
+        >>> s = trol.Set('test_srem', redis)
         >>> s.add([1, 2, 3])
         3
         >>> s.srem([1, 3])
         2
-        >>> s.clear()
 
         """
         values = [self.serialize(v) for v in _parse_values(values)]
@@ -280,9 +281,9 @@ class Set(Collection):
         """
         Remove and return (pop) a random element from the Set.
 
-        :rtype: String representing the value poped.
+        :return: String representing the value poped.
 
-        >>> s = trol.Set('test', redis)
+        >>> s = trol.Set('test_spop', redis)
         >>> s.add("a")
         1
         >>> s.spop()
@@ -302,18 +303,20 @@ class Set(Collection):
         Return True if the set has no elements in common with other.
 
         :param other: another ``Set``
-        :rtype: boolean
+        :return: boolean
 
-        >>> s1 = trol.Set('key1', redis)
-        >>> s2 = trol.Set('key2', redis)
+        >>> s1 = trol.Set('test_isdisjoint1', redis)
+        >>> s2 = trol.Set('test_isdisjoint2', redis)
         >>> s1.add(['a', 'b', 'c'])
         3
         >>> s2.add(['c', 'd', 'e'])
         3
         >>> s1.isdisjoint(s2)
         False
-        >>> s1.clear()
-        >>> s2.clear()
+        >>> s2.remove('c')
+        1
+        >>> s1.isdisjoint(s2)
+        True
 
         """
         self.pipeline.sinterstore(_scratch_key(), [self.key, other.key])
@@ -326,30 +329,52 @@ class Set(Collection):
 
         :param other_set: another ``Set`` to compare to.
 
-        >>> s1 = trol.Set('key1', redis)
-        >>> s2 = trol.Set('key2', redis)
+        >>> s1 = trol.Set('test_issubset1', redis)
+        >>> s2 = trol.Set('test_issubset2', redis)
         >>> s1.add(['a', 'b', 'c'])
         3
         >>> s2.add('b')
         1
         >>> s2.issubset(s1)
         True
-        >>> s1.clear()
-        >>> s2.clear()
+        >>> s2.add('d')
+        1
+        >>> s2.issubset(s1)
+        False
 
         """
         return self <= other_set
 
     def __le__(self, other_set):
+        """Test whether the set is a subset of other.
+
+        :return: True if this set is a subset of other.
+
+        >>> s1 = trol.Set('test_le1', redis)
+        >>> s2 = trol.Set('test_le2', redis)
+        >>> s1.add(['a', 'b'])
+        2
+        >>> s2.add(['a', 'b'])
+        2
+        >>> s2 <= s1
+        True
+        >>> s2.add('c')
+        1
+        >>> s2 <= s1
+        False
+
+        """
         self.pipeline.sdiffstore(_scratch_key(), [self.key, other_set.key])
         self.pipeline.delete(_scratch_key())
         return self.pipeline.execute()[0] == 0
 
     def __lt__(self, other_set):
-        """Test whether the set is a true subset of other.
+        """Test whether the set is a strict subset of other.
 
-        >>> s1 = trol.Set('key1', redis)
-        >>> s2 = trol.Set('key2', redis)
+        :return: True if this set is a strict subset of other.
+
+        >>> s1 = trol.Set('test_lt1', redis)
+        >>> s2 = trol.Set('test_lt2', redis)
         >>> s1.add(['a', 'b'])
         2
         >>> s2.add(['a', 'b'])
@@ -360,8 +385,6 @@ class Set(Collection):
         1
         >>> s2 < s1
         True
-        >>> s1.clear()
-        >>> s2.clear()
 
         """
         self.pipeline.sdiffstore(_scratch_key(), [self.key, other_set.key])
@@ -375,22 +398,20 @@ class Set(Collection):
         """
         Test equality of keys first, then members is they are not equal
 
-        >>> s1 = trol.Set('key1', redis)
-        >>> s2 = trol.Set('key2', redis)
+        >>> s1 = trol.Set('test_eq1', redis)
+        >>> s2 = trol.Set('test_eq2', redis)
         >>> s1.add(['a', 'b'])
         2
+        >>> s1 == s1
+        True
         >>> s2.add(['a', 'b'])
         2
-        >>> s2 == s1
+        >>> s1 == s2
         True
         >>> s1.add('c')
         1
-        >>> s2 < s1
-        True
-        >>> s1 == s1
-        True
-        >>> s1.clear()
-        >>> s2.clear()
+        >>> s1 == s2
+        False
 
         """
         if other_set.key == self.key:
@@ -412,16 +433,14 @@ class Set(Collection):
 
         :param other_set: another ``Set`` to compare to.
 
-        >>> s1 = trol.Set('key1', redis)
-        >>> s2 = trol.Set('key2', redis)
+        >>> s1 = trol.Set('test_issuperset1', redis)
+        >>> s2 = trol.Set('test_issuperset2', redis)
         >>> s1.add(['a', 'b', 'c'])
         3
         >>> s2.add('b')
         1
         >>> s1.issuperset(s2)
         True
-        >>> s1.clear()
-        >>> s2.clear()
 
         """
         return self >= other_set
@@ -431,32 +450,27 @@ class Set(Collection):
         return other_set <= self
 
     def __gt__(self, other_set):
-        """Test whether the set is a true superset of other."""
+        """Test whether the set is a strict superset of other."""
         return other_set < self
 
     # SET Operations
     def union(self, key, *other_sets):
         """
-        Return a new ``Set`` representing the union of *n* sets.
+        Return a new ``Set`` representing the union of the other sets.
 
-        :param key: String representing the key where to store the result (the union)
+        :param key: String representing the key where to store the result.
         :param other_sets: list of other ``Set``.
-        :rtype: ``Set``
+        :return: a new ``Set`` representing the union of the other sets.
 
-        >>> s1 = trol.Set('key1', redis)
-        >>> s2 = trol.Set('key2', redis)
+        >>> s1 = trol.Set('test_union1', redis)
+        >>> s2 = trol.Set('test_union2', redis)
         >>> s1.add(['a', 'b', 'c'])
         3
         >>> s2.add(['d', 'e'])
         2
-        >>> s3 = s1.union('key3', s2)
-        >>> s3.key
-        'key3'
+        >>> s3 = s1.union('test_union3', s2)
         >>> s3.members == {'a', 'c', 'b', 'e', 'd'}
         True
-        >>> s1.clear()
-        >>> s2.clear()
-        >>> s3.clear()
 
         """
         self.redis.sunionstore(key, [self.key] + [o.key for o in other_sets])
@@ -464,26 +478,21 @@ class Set(Collection):
 
     def intersection(self, key, *other_sets):
         """
-        Return a new ``Set`` representing the intersection of *n* sets.
+        Return a new ``Set`` representing the intersection of the other sets.
 
-        :param key: String representing the key where to store the result (the union)
+        :param key: String representing the key where to store the result.
         :param other_sets: list of other ``Set``.
-        :rtype: trol.Set
+        :return: a new ``Set`` representing the intersection of the other sets.
 
-        >>> s1 = trol.Set('key1', redis)
-        >>> s2 = trol.Set('key2', redis)
+        >>> s1 = trol.Set('test_intersection1', redis)
+        >>> s2 = trol.Set('test_intersection2', redis)
         >>> s1.add(['a', 'b', 'c'])
         3
         >>> s2.add(['c', 'e'])
         2
-        >>> s3 = s1.intersection('key3', s2)
-        >>> s3.key
-        'key3'
+        >>> s3 = s1.intersection('test_intersection3', s2)
         >>> s3.members
         {'c'}
-        >>> s1.clear()
-        >>> s2.clear()
-        >>> s3.clear()
 
         """
 
@@ -494,24 +503,19 @@ class Set(Collection):
         """
         Return a new ``Set`` representing the difference of *n* sets.
 
-        :param key: String representing the key where to store the result (the union)
+        :param key: String representing the key where to store the result.
         :param other_sets: list of other ``Set``.
-        :rtype: Set
+        :return: a new ``Set`` representing the difference of this set and the other sets.
 
-        >>> s1 = trol.Set('key1', redis)
-        >>> s2 = trol.Set('key2', redis)
+        >>> s1 = trol.Set('test_difference1', redis)
+        >>> s2 = trol.Set('test_difference2', redis)
         >>> s1.add(['a', 'b', 'c'])
         3
         >>> s2.add(['c', 'e'])
         2
-        >>> s3 = s1.difference('key3', s2)
-        >>> s3.key
-        'key3'
+        >>> s3 = s1.difference('test_difference3', s2)
         >>> s3.members == {'a', 'b'}
         True
-        >>> s1.clear()
-        >>> s2.clear()
-        >>> s3.clear()
 
         """
 
@@ -522,23 +526,20 @@ class Set(Collection):
         """Update the set, adding elements from all other_sets.
 
         :param other_sets: list of ``Set``
-        :rtype: None
+        :return: None
 
-        >>> s1 = trol.Set('key1', redis)
+        >>> s1 = trol.Set('test_set_update1', redis)
         >>> s1.add(['a', 'b', 'c'])
         3
-        >>> s2 = trol.Set('key2', redis)
+        >>> s2 = trol.Set('test_set_update2', redis)
         >>> s2.add(['b', 'c', 'd'])
         3
         >>> s1.update(s2)
         >>> s1.members == {'a', 'b', 'c', 'd'}
         True
-        >>> s1.clear()
-        >>> s2.clear()
 
         """
-        self.redis.sunionstore(
-            self.key, [self.key] + [o.key for o in other_sets])
+        self.redis.sunionstore(self.key, [self.key] + [o.key for o in other_sets])
 
     def __ior__(self, other_set):
         self.redis.sunionstore(self.key, [self.key, other_set.key])
@@ -549,19 +550,17 @@ class Set(Collection):
         Update the set, keeping only elements found in it and all other_sets.
 
         :param other_sets: list of ``Set``
-        :rtype: None
+        :return: None
 
-        >>> s1 = trol.Set('key1', redis)
+        >>> s1 = trol.Set('test_intersection_update1', redis)
         >>> s1.add(['a', 'b', 'c'])
         3
-        >>> s2 = trol.Set('key2', redis)
+        >>> s2 = trol.Set('test_intersection_update2', redis)
         >>> s2.add(['b', 'c', 'd'])
         3
         >>> s1.intersection_update(s2)
         >>> s1.members == {'b', 'c'}
         True
-        >>> s1.clear()
-        >>> s2.clear()
 
         """
         self.redis.sinterstore(
@@ -576,19 +575,17 @@ class Set(Collection):
         Update the set, removing elements found in others.
 
         :param other_sets: list of ``Set``
-        :rtype: None
+        :return: None
 
-        >>> s1 = trol.Set('key1', redis)
+        >>> s1 = trol.Set('test_difference_update1', redis)
         >>> s1.add(['a', 'b', 'c'])
         3
-        >>> s2 = trol.Set('key2', redis)
+        >>> s2 = trol.Set('test_difference_update2', redis)
         >>> s2.add(['b', 'c', 'd'])
         3
         >>> s1.difference_update(s2)
         >>> s1.members
         {'a'}
-        >>> s1.clear()
-        >>> s2.clear()
 
         """
         self.redis.sdiffstore(
@@ -613,14 +610,12 @@ class Set(Collection):
         .. WARNING::
             If the new key already contains a value, it will be overwritten.
 
-        >>> s1 = trol.Set('key1', redis)
+        >>> s1 = trol.Set('test_set_copy1', redis)
         >>> s1.add(['a', 'b', 'c'])
         3
-        >>> s2 = s1.copy('key2')
+        >>> s2 = s1.copy('test_set_copy2')
         >>> s2.members == {"a", "b", "c"}
         True
-        >>> s1.clear()
-        >>> s2.clear()
 
         """
 
@@ -631,7 +626,7 @@ class Set(Collection):
     def __iter__(self):
         """Get an iterator for this set
 
-        >>> s = trol.Set('test', redis)
+        >>> s = trol.Set('test_set_iter', redis)
         >>> s.add('a', 'b', 'b', 'c')
         3
         >>> for count, letter in enumerate(s):
@@ -639,52 +634,78 @@ class Set(Collection):
         1 Ah, Ah, Ah
         2 Ah, Ah, Ah
         3 Ah, Ah, Ah
-        >>> s.clear()
 
         """
         return self.members.__iter__()
 
     def sinter(self, *other_sets):
         """
-        Performs an intersection between Sets and return the *RAW* result.
+        Performs an intersection between Sets and return the result without storing.
 
         .. NOTE::
-          This function return an actual ``set`` object (from python) and not a ``Set``. See func:``intersection``.
+          This function return a Python ``set`` object, not a ``Set``. See func:``intersection``.
+
+        >>> s1 = trol.Set('test_sinter1', redis)
+        >>> s2 = trol.Set('test_sinter2', redis)
+        >>> s1.add(['a', 'b', 'c'])
+        3
+        >>> s2.add(['c', 'e'])
+        2
+        >>> s1.sinter(s2)
+        {'c'}
+
         """
-        return self.redis.sinter([self.key] + [self.key for s in other_sets])
+        return {self.deserialize(elem) for elem in self.redis.sinter([self.key] + [s.key for s in other_sets])}
 
     def sunion(self, *other_sets):
         """
-        Performs a union between two sets and returns the *RAW* result.
+        Performs a union between Sets and return the result without storing.
 
         .. NOTE::
-          This function return an actual ``set`` object (from python) and not a ``Set``.
+          This function return a Python ``set`` object, not a ``Set``. See func:``union``.
+
+        >>> s1 = trol.Set('test_sunion1', redis)
+        >>> s2 = trol.Set('test_sunion2', redis)
+        >>> s1.add(['a', 'b', 'c'])
+        3
+        >>> s2.add(['c', 'e'])
+        2
+        >>> s1.sunion(s2) == {'a', 'b', 'c', 'e'}
+        True
+
         """
-        return self.redis.sunion([self.key] + [self.key for s in other_sets])
+        return {self.deserialize(elem) for elem in self.redis.sunion([self.key] + [s.key for s in other_sets])}
 
     def sdiff(self, *other_sets):
         """
-        Performs a difference between two sets and returns the *RAW* result.
+        Performs a difference between Sets and return the result without storing.
 
         .. NOTE::
-          This function return an actual ``set`` object (from python) and not a ``Set``.
-          See function difference.
+          This function return a Python ``set`` object, not a ``Set``. See func:``difference``.
+
+        >>> s1 = trol.Set('test_sdiff1', redis)
+        >>> s2 = trol.Set('test_sdiff2', redis)
+        >>> s1.add(['a', 'b', 'c'])
+        3
+        >>> s2.add(['c', 'e'])
+        2
+        >>> s1.sdiff(s2) == {'a', 'b'}
+        True
 
         """
-        return self.redis.sdiff([self.key] + [self.key for s in other_sets])
+        return {self.deserialize(elem) for elem in self.redis.sdiff([self.key] + [s.key for s in other_sets])}
 
     def scard(self):
         """
         Returns the cardinality of the Set.
 
-        >>> s = trol.Set('test', redis)
+        :return: integer cardinality of the Set.
+
+        >>> s = trol.Set('test_scard', redis)
         >>> s.add(['a', 'b', 'c'])
         3
         >>> s.scard()
         3
-        >>> s.clear()
-
-        :rtype: String containing the cardinality.
 
         """
         return self.redis.scard(self.key)
@@ -693,7 +714,7 @@ class Set(Collection):
         """
         Return ``True`` if the provided value is in the ``Set``.
 
-        >>> s = trol.Set('test', redis)
+        >>> s = trol.Set('test_sismember', redis)
         >>> s.add(['a', 'b', 'c'])
         3
         >>> s.sismember('d')
@@ -707,12 +728,11 @@ class Set(Collection):
         """
         Return a random member of the set.
 
-        >>> s = trol.Set('test', redis)
+        >>> s = trol.Set('test_srandmember', redis)
         >>> s.add(['a', 'b', 'c'])
         3
         >>> s.srandmember() in { 'a', 'b', 'c' }
         True
-        >>> s.clear()
 
         """
         value = self.redis.srandmember(self.key)
@@ -722,11 +742,8 @@ class Set(Collection):
             return self.deserialize(value)
 
     add = sadd
-    """see sadd"""
     pop = spop
-    """see spop"""
     remove = srem
-    """see srem"""
     __contains__ = sismember
     __len__ = scard
 
@@ -772,12 +789,11 @@ class List(Collection):
         :param start: integer representing the start index of the range
         :param stop: integer representing the size of the list.
 
-        >>> l = trol.List('test', redis)
+        >>> l = trol.List('test_lrange', redis)
         >>> l.push(['a', 'b', 'c', 'd'])
         4
         >>> l.lrange(1, 2)
         ['b', 'c']
-        >>> l.clear()
 
         """
         return [self.deserialize(v) for v in self.redis.lrange(self.key, start, stop)]
@@ -787,9 +803,9 @@ class List(Collection):
         Push the value into the list from the *left* side
 
         :param values: a list of values or single value to push
-        :rtype: long representing the number of values pushed.
+        :return: long representing the number of values pushed.
 
-        >>> l = trol.List('test', redis)
+        >>> l = trol.List('test_lpush', redis)
         >>> l.lpush(['a', 'b'])
         2
         >>> l.lpush(['c', 'd'])
@@ -798,7 +814,6 @@ class List(Collection):
         ['d', 'c', 'b', 'a']
         >>> l.lpush()
         4
-        >>> l.clear()
 
         """
         values = [self.serialize(v) for v in _parse_values(values)]
@@ -813,9 +828,9 @@ class List(Collection):
         Push the value into the list from the *right* side
 
         :param values: a list of values or single value to push
-        :rtype: long representing the size of the list.
+        :return: long representing the size of the list.
 
-        >>> l = trol.List('test', redis)
+        >>> l = trol.List('test_rpush', redis)
         >>> l.rpush(['a', 'b'])
         2
         >>> l.rpush(['c', 'd'])
@@ -824,7 +839,6 @@ class List(Collection):
         ['a', 'b', 'c', 'd']
         >>> l.rpush()
         4
-        >>> l.clear()
 
         """
 
@@ -841,14 +855,13 @@ class List(Collection):
 
         :param iterable: an iterable objects.
 
-        >>> l = trol.List('test', redis)
+        >>> l = trol.List('test_extend', redis)
         >>> l.extend(['a', 'b'])
         >>> l.members
         ['a', 'b']
         >>> l.extend(['c', 'd'])
         >>> l.members
         ['a', 'b', 'c', 'd']
-        >>> l.clear()
 
         """
         self.rpush(*iterable)
@@ -859,7 +872,7 @@ class List(Collection):
 
         :param value: a value tha *may* be contained in the list
 
-        >>> l = trol.List('test', redis)
+        >>> l = trol.List('test_count', redis)
         >>> l.extend(['duck', 'duck', 'duck', 'goose'])
         >>> l.count("duck")
         3
@@ -867,7 +880,6 @@ class List(Collection):
         1
         >>> l.count("possum")
         0
-        >>> l.clear()
 
         """
         return self.members.count(value)
@@ -878,7 +890,7 @@ class List(Collection):
 
         :return: the popped value.
 
-        >>> l = trol.List('test', redis)
+        >>> l = trol.List('test_lpop', redis)
         >>> l.extend(['a', 'b', 'c'])
         >>> l.lpop()
         'a'
@@ -904,7 +916,7 @@ class List(Collection):
 
         :return: the popped value.
 
-        >>> l = trol.List('test', redis)
+        >>> l = trol.List('test_rpop', redis)
         >>> l.extend(['a', 'b', 'c'])
         >>> l.rpop()
         'c'
@@ -932,15 +944,13 @@ class List(Collection):
         :param key: the key of the list receiving the popped value.
         :return: the popped (and pushed) value
 
-        >>> l = trol.List('list1', redis)
+        >>> l = trol.List('list_rpoplpush1', redis)
         >>> l.extend(['a', 'b', 'c'])
-        >>> l.rpoplpush('list2')
+        >>> l.rpoplpush('list_rpoplpush2')
         'c'
-        >>> l2 = trol.List('list2', redis)
+        >>> l2 = trol.List('list_rpoplpush2', redis)
         >>> l2.members
         ['c']
-        >>> l.clear()
-        >>> l2.clear()
 
         """
         value = self.redis.rpoplpush(self.key, key)
@@ -955,7 +965,7 @@ class List(Collection):
 
         :return: the number of removed elements
 
-        >>> l = trol.List('test', redis)
+        >>> l = trol.List('test_lrem', redis)
         >>> l.extend(['duck', 'duck', 'duck', 'goose'])
         >>> l.lrem("duck")
         1
@@ -963,7 +973,6 @@ class List(Collection):
         2
         >>> l.members
         ['goose']
-        >>> l.clear()
 
         """
         return self.redis.lrem(self.key, num, self.serialize(value))
@@ -977,14 +986,13 @@ class List(Collection):
 
         :return: None
 
-        >>> l = trol.List('test', redis)
+        >>> l = trol.List('test_reverse', redis)
         >>> l.extend(['a', 'b', 'c'])
         >>> l.members
         ['a', 'b', 'c']
         >>> l.reverse()
         >>> l.members
         ['c', 'b', 'a']
-        >>> l.clear()
 
         """
         def reversefn(pipe):
@@ -1004,13 +1012,11 @@ class List(Collection):
 
         :return: a list object pointing to the copy
 
-        >>> l = trol.List('test', redis)
+        >>> l = trol.List('test_list_copy', redis)
         >>> l.extend(['a', 'b', 'c'])
         >>> copy = l.copy('copy')
         >>> copy.members
         ['a', 'b', 'c']
-        >>> l.clear()
-        >>> copy.clear()
 
         """
         def copyfn(pipe):
@@ -1030,13 +1036,12 @@ class List(Collection):
 
         :return: True if the operation succeeded
 
-        >>> l = trol.List('test', redis)
+        >>> l = trol.List('test_ltrim', redis)
         >>> l.extend(['a', 'b', 'c'])
         >>> l.ltrim(0, 1)
         True
         >>> l.members
         ['a', 'b']
-        >>> l.clear()
 
         """
         return self.redis.ltrim(self.key, start, end)
@@ -1048,11 +1053,10 @@ class List(Collection):
         :param idx: the index to fetch the value.
         :return: the value or None if out of range.
 
-        >>> l = trol.List('test', redis)
+        >>> l = trol.List('test_lindex', redis)
         >>> l.extend(['a', 'b', 'c'])
         >>> l.lindex(1)
         'b'
-        >>> l.clear()
 
         """
         value = self.redis.lindex(self.key, idx)
@@ -1067,14 +1071,13 @@ class List(Collection):
 
         :return: True is the operation succeed.
 
-        >>> l = trol.List('test', redis)
+        >>> l = trol.List('test_lset', redis)
         >>> l.push(['a', 'b', 'c'])
         3
         >>> l.lset(0, 'e')
         True
         >>> l.members
         ['e', 'b', 'c']
-        >>> l.clear()
 
         """
         return self.redis.lset(self.key, idx, self.serialize(value))
@@ -1082,7 +1085,7 @@ class List(Collection):
     def __iter__(self):
         """Get an iterator for this list
 
-        >>> l = trol.List('test', redis)
+        >>> l = trol.List('test_list_iter', redis)
         >>> l.lpush('a', 'b', 'c')
         3
         >>> for letter in l:
@@ -1090,7 +1093,6 @@ class List(Collection):
         c
         b
         a
-        >>> l.clear()
 
         """
         return self.members.__iter__()
@@ -1189,8 +1191,7 @@ class SortedSet(Collection):
         """
         if limit is not None and offset is None:
             offset = 0
-        return self.zrangebyscore("-inf", "(%f" % v,
-                                  start=offset, num=limit)
+        return self.zrangebyscore("-inf", "(%f" % v, start=offset, num=limit)
 
     def le(self, v, limit=None, offset=None):
         """
@@ -1213,8 +1214,7 @@ class SortedSet(Collection):
         """
         if limit is not None and offset is None:
             offset = 0
-        return self.zrangebyscore("(%f" % v, "+inf",
-                                  start=offset, num=limit, withscores=withscores)
+        return self.zrangebyscore("(%f" % v, "+inf", start=offset, num=limit, withscores=withscores)
 
     def ge(self, v, limit=None, offset=None, withscores=False):
         """Returns the list of the members of the set that have scores
@@ -1227,8 +1227,7 @@ class SortedSet(Collection):
         """
         if limit is not None and offset is None:
             offset = 0
-        return self.zrangebyscore("%f" % v, "+inf",
-                                  start=offset, num=limit, withscores=withscores)
+        return self.zrangebyscore("%f" % v, "+inf", start=offset, num=limit, withscores=withscores)
 
     def between(self, min, max, limit=None, offset=None):
         """
@@ -1243,7 +1242,7 @@ class SortedSet(Collection):
         :param limit: limit the result to *n* elements
         :param offset: Skip the first *n* elements
 
-        >>> s = trol.SortedSet('test', redis)
+        >>> s = trol.SortedSet('test_between', redis)
         >>> s.add('a', 10)
         1
         >>> s.add('b', 20)
@@ -1252,13 +1251,11 @@ class SortedSet(Collection):
         1
         >>> s.between(20, 30)
         ['b', 'c']
-        >>> s.clear()
 
         """
         if limit is not None and offset is None:
             offset = 0
-        return self.zrangebyscore(min, max,
-                                  start=offset, num=limit)
+        return self.zrangebyscore(min, max, start=offset, num=limit)
 
     def zadd(self, members, score=1):
         """
@@ -1267,7 +1264,7 @@ class SortedSet(Collection):
         :param members: a list of item or a single item
         :param score: the score the assign to the item(s)
 
-        >>> s = trol.SortedSet('test', redis)
+        >>> s = trol.SortedSet('test_zadd', redis)
         >>> s.add('a')
         1
         >>> s.zscore('a')
@@ -1280,7 +1277,6 @@ class SortedSet(Collection):
         2
         >>> s.zscore('d')
         6.0
-        >>> s.clear()
 
         """
         if isinstance(members, dict):
@@ -1297,14 +1293,13 @@ class SortedSet(Collection):
         :return: True if **at least one** value is successfully
                  removed, False otherwise
 
-        >>> s = trol.SortedSet('test', redis)
+        >>> s = trol.SortedSet('test_zrem', redis)
         >>> s.add('a', 10)
         1
         >>> s.zrem('a')
         1
         >>> s.members
         []
-        >>> s.clear()
 
         """
         values = [self.serialize(v) for v in _parse_values(values)]
@@ -1318,12 +1313,11 @@ class SortedSet(Collection):
         :param att: the member to increment
         :returns: the new score of the member
 
-        >>> s = trol.SortedSet('test', redis)
+        >>> s = trol.SortedSet('test_zincrby', redis)
         >>> s.add('a', 10)
         1
         >>> s.zincrby(10, 'a')
         20.0
-        >>> s.clear()
 
         """
         return self.redis.zincrby(self.key, value, self.serialize(att))
@@ -1332,14 +1326,13 @@ class SortedSet(Collection):
         """
         Returns the ranking in reverse order for the member
 
-        >>> s = trol.SortedSet('test', redis)
+        >>> s = trol.SortedSet('test_zrevrank', redis)
         >>> s.add('a', 10)
         1
         >>> s.add('b', 20)
         1
         >>> s.revrank('a')
         1
-        >>> s.clear()
 
         """
         return self.redis.zrevrank(self.key, self.serialize(member))
@@ -1352,7 +1345,7 @@ class SortedSet(Collection):
         :param withscore: True if the score of the elements should
                           also be returned
 
-        >>> s = trol.SortedSet('test', redis)
+        >>> s = trol.SortedSet('test_range', redis)
         >>> s.add('a', 10)
         1
         >>> s.add('b', 20)
@@ -1363,7 +1356,6 @@ class SortedSet(Collection):
         ['b', 'c']
         >>> s.zrange(1, 3, withscores=True)
         [('b', 20.0), ('c', 30.0)]
-        >>> s.clear()
 
         """
         if withscores:
@@ -1376,7 +1368,7 @@ class SortedSet(Collection):
         Returns the range of items included between ``start`` and ``stop``
         in reverse order (from high to low)
 
-        >>> s = trol.SortedSet('test', redis)
+        >>> s = trol.SortedSet('test_zrevrange', redis)
         >>> s.add('a', 10)
         1
         >>> s.add('b', 20)
@@ -1394,7 +1386,7 @@ class SortedSet(Collection):
         """
         Returns the range of elements included between the scores (min and max)
 
-        >>> s = trol.SortedSet('test', redis)
+        >>> s = trol.SortedSet('test_zrangebyscore', redis)
         >>> s.add('a', 10)
         1
         >>> s.add('b', 20)
@@ -1403,7 +1395,6 @@ class SortedSet(Collection):
         1
         >>> s.zrangebyscore(20, 30)
         ['b', 'c']
-        >>> s.clear()
 
         """
         return [self.deserialize(v) for v in self.redis.zrangebyscore(self.key, min, max, **kwargs)]
@@ -1412,16 +1403,15 @@ class SortedSet(Collection):
         """
         Returns the range of elements included between the scores (min and max)
 
-        >>> s = trol.SortedSet('test', redis)
+        >>> s = trol.SortedSet('test_zrevrangebyscore', redis)
         >>> s.add('a', 10)
         1
         >>> s.add('b', 20)
         1
         >>> s.add('c', 30)
         1
-        >>> s.zrangebyscore(20, 20)
-        ['b']
-        >>> s.clear()
+        >>> s.zrevrangebyscore(30, 20)
+        ['c', 'b']
 
         """
         return [self.deserialize(v) for v in self.redis.zrevrangebyscore(self.key, max, min, **kwargs)]
@@ -1430,7 +1420,7 @@ class SortedSet(Collection):
         """
         Returns the cardinality of the SortedSet.
 
-        >>> s = trol.SortedSet('test', redis)
+        >>> s = trol.SortedSet('test_zcard', redis)
         >>> s.add("a", 1)
         1
         >>> s.add("b", 2)
@@ -1439,7 +1429,6 @@ class SortedSet(Collection):
         1
         >>> s.zcard()
         3
-        >>> s.clear()
 
         """
         return self.redis.zcard(self.key)
@@ -1448,24 +1437,22 @@ class SortedSet(Collection):
         """
         Return the score of an element
 
-        >>> s = trol.SortedSet('test', redis)
+        >>> s = trol.SortedSet('test_zscore', redis)
         >>> s.add("a", 10)
         1
         >>> s.score("a")
         10.0
-        >>> s.clear()
 
         """
         return self.redis.zscore(self.key, self.serialize(elem))
 
     def zremrangebyrank(self, start, stop):
         """
-        Remove a range of element between the rank ``start`` and
-        ``stop`` both included.
+        Remove a range of element between the rank ``start`` and ``stop`` both included.
 
         :return: the number of item deleted
 
-        >>> s = trol.SortedSet('test', redis)
+        >>> s = trol.SortedSet('test_zremrangebyrank', redis)
         >>> s.add("a", 10)
         1
         >>> s.add("b", 20)
@@ -1476,7 +1463,6 @@ class SortedSet(Collection):
         2
         >>> s.members
         ['a']
-        >>> s.clear()
 
         """
         return self.redis.zremrangebyrank(self.key, start, stop)
@@ -1488,7 +1474,7 @@ class SortedSet(Collection):
 
         :returns: the number of items deleted.
 
-        >>> s = trol.SortedSet('test', redis)
+        >>> s = trol.SortedSet('test_zremrangebyscore', redis)
         >>> s.add("a", 10)
         1
         >>> s.add("b", 20)
@@ -1499,7 +1485,6 @@ class SortedSet(Collection):
         2
         >>> s.members
         ['c']
-        >>> s.clear()
 
         """
 
@@ -1509,12 +1494,11 @@ class SortedSet(Collection):
         """
         Returns the rank of the element.
 
-        >>> s = trol.SortedSet('test', redis)
+        >>> s = trol.SortedSet('test_zrank', redis)
         >>> s.add({'a': 30, 'b':20, 'c':10})
         3
         >>> s.zrank('b')
         1
-        >>> s.clear()
 
         """
         return self.redis.zrank(self.key, self.serialize(elem))
@@ -1524,6 +1508,16 @@ class SortedSet(Collection):
         Returns the elements that have ``value`` for score.
         """
         return self.zrangebyscore(value, value)
+
+    def __repr__(self):
+        """Gets the string representation of this object
+
+        >>> h = trol.SortedSet('test', redis)
+        >>> repr(h)
+        "<SortedSet 'test'>"
+
+        """
+        return "<%s '%s'>" % (self.__class__.__name__, self.key)
 
     __len__ = zcard
     revrank = zrevrank
@@ -1548,11 +1542,10 @@ class Hash(Collection, collections.MutableMapping):
 
         :return: the number of elements in the hash.
 
-        >>> h = trol.Hash('test', redis)
+        >>> h = trol.Hash('test_hlen', redis)
         >>> h.update(a=1, b=2, c=3)
         >>> h.hlen()
         3
-        >>> h.clear()
 
         """
         return self.redis.hlen(self.key)
@@ -1563,14 +1556,13 @@ class Hash(Collection, collections.MutableMapping):
 
         :returns: 1 if ``field`` is a new value and 0 if it was updated.
 
-        >>> h = trol.Hash('test', redis)
+        >>> h = trol.Hash('test_hset', redis)
         >>> h.hset("bar", "foo")
         1
         >>> h.hset("bar", "baz")
         0
         >>> h.dict
         {'bar': 'baz'}
-        >>> h.clear()
 
         """
         return self.redis.hset(self.key, self.serialize_field(field), self.serialize(value))
@@ -1582,13 +1574,12 @@ class Hash(Collection, collections.MutableMapping):
         :param fields: on or more fields to remove.
         :return: the number of fields that were removed
 
-        >>> h = trol.Hash('test', redis)
+        >>> h = trol.Hash('test_hdel', redis)
         >>> h.update(a=1, b=2, c=3)
         >>> h.hdel("a", "b")
         2
         >>> h.dict
         {'c': 3}
-        >>> h.clear()
 
         """
         return self.redis.hdel(self.key, *(self.serialize_field(field) for field in fields))
@@ -1597,11 +1588,10 @@ class Hash(Collection, collections.MutableMapping):
         """
         Returns all fields name in the Hash
 
-        >>> h = trol.Hash('test', redis)
+        >>> h = trol.Hash('test_hkeys', redis)
         >>> h.update(a=1, b=2, c=3)
         >>> h.hkeys()
         ['a', 'b', 'c']
-        >>> h.clear()
 
         """
         return [self.deserialize_field(field) for field in self.redis.hkeys(self.key)]
@@ -1610,13 +1600,12 @@ class Hash(Collection, collections.MutableMapping):
         """
         Returns all the fields and values in the Hash.
 
-        :rtype: dict
+        :return: ``dict`` with all the hash fields and values
 
-        >>> h = trol.Hash('test', redis)
+        >>> h = trol.Hash('test_hgetall', redis)
         >>> h.update(a=1, b=2, c=3)
         >>> h.dict == {"a": 1, "b": 2, "c": 3}
         True
-        >>> h.clear()
 
         """
         return {self.deserialize_field(k): self.deserialize(v) for k, v in self.redis.hgetall(self.key).items()}
@@ -1625,13 +1614,12 @@ class Hash(Collection, collections.MutableMapping):
         """
         Returns all the values in the Hash
 
-        :rtype: list
+        :return: ``list`` with all the hash values
 
-        >>> h = trol.Hash('test', redis)
+        >>> h = trol.Hash('test_hvals', redis)
         >>> h.update(a=1, b=2, c=3)
         >>> h.hvals()
         [1, 2, 3]
-        >>> h.clear()
 
         """
         return [self.deserialize(v) for v in self.redis.hvals(self.key)]
@@ -1644,7 +1632,7 @@ class Hash(Collection, collections.MutableMapping):
         :param default: the value to return if the field is not found.
         :param raise_error: whether to raise a ``KeyError`` if the key is not found.
 
-        >>> h = trol.Hash('test', redis)
+        >>> h = trol.Hash('test_hget', redis)
         >>> h.update(a=1, b=2, c=3)
         >>> h.hget("b")
         2
@@ -1656,7 +1644,6 @@ class Hash(Collection, collections.MutableMapping):
         Traceback (most recent call last):
         ...
         KeyError: 'd'
-        >>> h.clear()
 
         """
         value = self.redis.hget(self.key, self.serialize_field(field))
@@ -1675,7 +1662,7 @@ class Hash(Collection, collections.MutableMapping):
         :param default: the value to return if the field is not found.
         :param raise_error: whether to raise a ``KeyError`` if the key is not found.
 
-        >>> h = trol.Hash('test', redis)
+        >>> h = trol.Hash('test_hmget', redis)
         >>> h.update(a=1, b=2, c=3)
         >>> h.hmget(["a", "b"])
         [1, 2]
@@ -1687,7 +1674,6 @@ class Hash(Collection, collections.MutableMapping):
         Traceback (most recent call last):
         ...
         KeyError: 'd'
-        >>> h.clear()
 
         """
         def deserialize(field, value):
@@ -1704,13 +1690,12 @@ class Hash(Collection, collections.MutableMapping):
         """
         Returns ``True`` if the field exists, ``False`` otherwise.
 
-        >>> h = trol.Hash('test', redis)
+        >>> h = trol.Hash('test_hexists', redis)
         >>> h.update(a=1, b=2, c=3)
         >>> h.hexists("a")
         True
         >>> h.hexists("d")
         False
-        >>> h.clear()
 
         """
         return self.redis.hexists(self.key, self.serialize_field(field))
@@ -1720,12 +1705,11 @@ class Hash(Collection, collections.MutableMapping):
         Increment the value of the field.
         :returns: the value of the field after incrementation
 
-        >>> h = trol.Hash('test', redis)
+        >>> h = trol.Hash('test_hincrby', redis)
         >>> h.hincrby("key", 10)
         10
         >>> h.hincrby("key", 2)
         12
-        >>> h.clear()
 
         """
         return self.redis.hincrby(self.key, self.serialize_field(field), increment)
@@ -1737,7 +1721,7 @@ class Hash(Collection, collections.MutableMapping):
         :param mapping: a dict with keys and values
         :return: True if the operation succeeded
 
-        >>> h = trol.Hash('test', redis)
+        >>> h = trol.Hash('test_hmset', redis)
         >>> h.hmset({"a": 1, "b": 2, "c": 3})
         True
         >>> h.dict == {"a": 1, "b": 2, "c": 3}
@@ -1746,7 +1730,6 @@ class Hash(Collection, collections.MutableMapping):
         True
         >>> h.dict == {"a": 1, "b": 2, "c": 3}
         True
-        >>> h.clear()
 
         """
         if not mapping:
@@ -1761,7 +1744,7 @@ class Hash(Collection, collections.MutableMapping):
 
         :return: None
 
-        >>> h = trol.Hash('test', redis)
+        >>> h = trol.Hash('test_set_update', redis)
         >>> h.update({"a": 1, "b": 2, "c": 3})
         >>> h.dict == {"a": 1, "b": 2, "c": 3}
         True
@@ -1771,7 +1754,6 @@ class Hash(Collection, collections.MutableMapping):
         >>> h.update([("e", 5)])
         >>> h["e"]
         5
-        >>> h.clear()
 
         """
 

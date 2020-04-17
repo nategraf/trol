@@ -4,7 +4,7 @@ from . import ModelType, Collection, Property
 class DatabaseType(type):
     def __init__(cls, *args, **kwargs):
         """DatabaseType represensents a trol managed database.
-        
+
         Model, Collection and Property objects are gain reflected name awareness and a database collection from the
         parent Database class.
         """
