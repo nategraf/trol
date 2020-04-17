@@ -1,40 +1,6 @@
 """A set of utility functions for use in multiple parts of trol
 
 This module currently contains the serialize and deserialize methods for the Property and Collection classes I implement
-"""
-
-import weakref
-import trol
-
-
-def serialize_str(obj):
-    return obj
-
-def serialize_int(obj):
-    return obj
-
-def serialize_float(obj):
-    return obj
-
-def serialize_bytes(obj):
-    return obj
-
-def serialize_bool(obj):
-    if obj:
-        return b'True'
-    else:
-        return b'False'
-
-serializers = {
-    str: serialize_str,
-    int: serialize_int,
-    float: serialize_float,
-    bytes: serialize_bytes,
-    bool: serialize_bool,
-}
-""" dict[type, Callable[[object], bytes]]: A dictionary of serializers known trol classes
-
-Additonal entries can be added to support new serializable types
 
 >>> import redis
 >>> import trol
@@ -74,6 +40,40 @@ RETURN OF THE HNC!
 >>> r.flushall()
 True
 
+"""
+
+import weakref
+import trol
+
+
+def serialize_str(obj):
+    return obj
+
+def serialize_int(obj):
+    return obj
+
+def serialize_float(obj):
+    return obj
+
+def serialize_bytes(obj):
+    return obj
+
+def serialize_bool(obj):
+    if obj:
+        return b'True'
+    else:
+        return b'False'
+
+serializers = {
+    str: serialize_str,
+    int: serialize_int,
+    float: serialize_float,
+    bytes: serialize_bytes,
+    bool: serialize_bool,
+}
+""" dict[type, Callable[[object], bytes]]: A dictionary of serializers known trol classes
+
+Additonal entries can be added to support new serializable types
 """
 
 

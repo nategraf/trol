@@ -53,8 +53,8 @@ Lock
 .. automodule:: trol.lock
    :members:
 
-Serialization
--------------
+Utilities
+---------
 
 .. automodule:: trol.util
    :members:
