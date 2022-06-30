@@ -28,7 +28,7 @@ Caching for collections is a trickier prospect, and therefore is not attempted
 """
 
 import threading
-import collections
+import collections.abc
 import pickle
 from . import Serializer, Deserializer
 
@@ -1528,7 +1528,7 @@ class SortedSet(Collection):
     remove = zrem
 
 
-class Hash(Collection, collections.MutableMapping):
+class Hash(Collection, collections.abc.MutableMapping):
     """This class represent a hash (i.e. dict) object as seen in Redis."""
 
     def __init__(self, *args, field_typ=str, field_serializer=None, field_deserializer=None, **kwargs):

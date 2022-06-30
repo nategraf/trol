@@ -85,3 +85,18 @@ Getting started
   ...   b'Beer:Universale@245:rating'
   ... }
   True
+
+Development
+-----------
+
+For local development, install the dependencies listed in `requirements.txt` and additionally the dev-dependencies in `requirements-dev.txt`.
+
+As an additional development dependency, you should have Redis server installed locally. You can
+follow the instructions at https://redis.io/docs/getting-started/installation/ to get started. Note
+that on Ubuntu, you should install redis via `apt` rather than snap as the snap package does not
+include the `redis-server` binary.
+
+Testing
+.......
+
+Tests are written using `nose2`. Running tests can be accomplished
