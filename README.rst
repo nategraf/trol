@@ -99,4 +99,7 @@ include the `redis-server` binary.
 Testing
 .......
 
-Tests are written using `nose2`. Running tests can be accomplished
+Tests are written using `nose2`. Running tests can be accomplished by running `python -m nose2`.
+
+Note that tests will run a `redis-server` process, so this command must be installed. as mentioned
+above, in addition to the `requirements-dev.txt` dependencies.
