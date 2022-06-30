@@ -14,5 +14,5 @@ if [ -z "$TAG" ]; then
     devpi upload --formats sdist,bdist_wheel
 else
     python setup.py sdist bdist_wheel
-    twine upload dist/*${TAG:1}*
+    python -m twine upload dist/*${TAG:1}*
 fi
